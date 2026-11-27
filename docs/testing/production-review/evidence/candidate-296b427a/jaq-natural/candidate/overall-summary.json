@@ -1,0 +1,167 @@
+{
+  "workspace_members": 4,
+  "native_full_exit": 0,
+  "native_named_passed": 113,
+  "remote_full_exit": 101,
+  "remote_reported_case_statuses": {
+    "passed": 105,
+    "flaky": 0,
+    "failed": 8,
+    "ignored": 0,
+    "error": 0
+  },
+  "known_artifact_count": 10,
+  "reported_targets": [
+    {
+      "package": "jaq",
+      "target": "golden",
+      "kind": "test",
+      "counts": {
+        "passed": 0,
+        "flaky": 0,
+        "failed": 8,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-core",
+      "target": "path",
+      "kind": "test",
+      "counts": {
+        "passed": 9,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-std",
+      "target": "jaq-std",
+      "kind": "lib",
+      "counts": {
+        "passed": 0,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-core",
+      "target": "tests",
+      "kind": "test",
+      "counts": {
+        "passed": 34,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-core",
+      "target": "custom",
+      "kind": "test",
+      "counts": {
+        "passed": 0,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-core",
+      "target": "named",
+      "kind": "test",
+      "counts": {
+        "passed": 23,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-core",
+      "target": "jaq-core",
+      "kind": "lib",
+      "counts": {
+        "passed": 2,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-parse",
+      "target": "jaq-parse",
+      "kind": "lib",
+      "counts": {
+        "passed": 0,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-std",
+      "target": "std",
+      "kind": "test",
+      "counts": {
+        "passed": 36,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-parse",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "counts": {
+        "passed": 0,
+        "failed": 0,
+        "flaky": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-std",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "counts": {
+        "passed": 0,
+        "failed": 0,
+        "flaky": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "package": "jaq-core",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "flaky": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    }
+  ],
+  "cohort_blocks": 128,
+  "independently_verified_named_pins": true,
+  "natural_recovery_witness": true,
+  "natural_retry_blocks": [
+    121
+  ],
+  "complete_workspace_native_wasi_parity": false
+}

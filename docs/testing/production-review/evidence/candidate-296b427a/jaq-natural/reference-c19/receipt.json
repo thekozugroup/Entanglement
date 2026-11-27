@@ -1,0 +1,48 @@
+{
+  "adapter_sha256": "cf1ac3e26f348d1983f518b9c115607d723312622ea8fe13668210e2bedebf73",
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "blocks": 128,
+  "coordinator": "32bc94f8268ab24ad071e851abbe041d",
+  "encoder_sha256": "a699ecb7b7c446de7e6300f5d8d9009dfd57c26f26c52efc7518080a5bf23157",
+  "errors": 0,
+  "expected_blocks": 128,
+  "finished_utc": "2026-11-27T08:25:02.017063+00:00",
+  "fixture_sha256": "2244229b57651c6e908c50f4ddc86a43221ac16743dd89429f9e372621f43627",
+  "native_executable_sha256": "de058b34145b15b0f19decee76c0a1c6d685ed487446a9ecd80851415fcd2ce7",
+  "native_patterns": {
+    "failed->failed": 52,
+    "failed->passed": 1,
+    "passed": 75
+  },
+  "peers": [
+    "afbcdb38574079182aae307d8c334b81",
+    "11437f327181b9daa938348eb5599522"
+  ],
+  "plan_sha256": "5c611fc83708fe3886157ca4203bbf8fcc6717096ea2dfc0eae6fb387f238a4b",
+  "plugin_id": "32bc94f8268ab24ad071e851abbe041d/jaq-clock@0.1.0",
+  "raw_sha256": "45f60ed0086ce70aa012d013f8b822f84ef2676ffe2da5eaeddef028037b4e48",
+  "release_binary_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "release_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "remote_patterns": {
+    "failed->failed": 56,
+    "failed->passed": 1,
+    "passed": 71
+  },
+  "script_sha256": "beb92c07e09d6509e33526527c22dde294b0d4db56ecc85d7c910d9a3aad948e",
+  "sharder_sha256": "c7b8a4cde066f7b591a54a1aaba53a20d241bd052e4885578de45f977bf49a75",
+  "signed_component_sha256": "453c8cf550ae6547376457d1f1679b5ea444bddc98cf1508d42eadd68680fc1a",
+  "signed_manifest_sha256": "4141d447df8b7b4e33fed78b20a15f3f103ed61223c6d4a77011eb574f18992e",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T08:24:43.926194+00:00",
+  "upstream_case_file_sha256": "0d86802167c266bb9e917d356f65c5c156eeee9df0765bc97e2e9a6b63a110c4",
+  "upstream_lock_sha256": "bc7ec7e5dfab7363f649fa7d76af767e8835a2a110785d939691e06c16255ed6",
+  "upstream_revision": "606164eb26420c892c9bac27f7daf77b7a406b6d",
+  "verified_remote_transitions": [
+    107
+  ],
+  "wasm_module_sha256": "7f647b6a4c6ce00194989c679fe90213c15628e3e014cdd76e5f6109874c544c"
+}

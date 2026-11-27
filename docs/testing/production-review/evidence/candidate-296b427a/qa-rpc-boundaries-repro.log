@@ -1,0 +1,4 @@
+truncated rejected daemon returned an incomplete or oversized RPC response
+oversized rejected daemon returned an incomplete or oversized RPC response
+invalid-envelope rejected unexpected RPC response envelope
+valid-envelope passed

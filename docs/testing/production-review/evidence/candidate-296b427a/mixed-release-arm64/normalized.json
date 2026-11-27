@@ -1,0 +1,43 @@
+{
+  "source_id": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "path": "docs/testing/production-review/evidence/candidate-296b427a/mixed-release-arm64/mixed-release-arm64.json",
+  "exit_code": 0,
+  "sha256": "561fd88323c2792f0babd79d8152983663448cd2238906cc30b60f1aebd17fb9",
+  "observed_at_utc": "2026-11-27T08:36:20+00:00",
+  "raw_log_sha256": "7cf27d4441c46dfde1dad59a90e025e874a56ea35f40411597c6f52b5497e0d3",
+  "run_log_sha256": "7dd9cb8bb999b9c0fbe925c5b34dffcc59b0b42a93934b97dcc1099c148e868c",
+  "command": "python3 -B docs/testing/production-review/evidence/candidate-296b427a/mixed-release-arm64/exercise.py --repo . --out docs/testing/production-review/evidence/candidate-296b427a/mixed-release-arm64 --work /workspace/entangle-mix-296b.3eCSwyYF --x86 target/release-candidate/296b427a3bb2/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz --x86-receipt docs/testing/production-review/evidence/candidate-296b427a/linux-archive.json --arm target/release-candidate/c19ef7587a22-aarch64/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz --arm-receipt docs/testing/production-review/evidence/candidate-c19ef758/emulated-linux-arm64/arm-archive.json --wasm target/catalog-smoke/wasm32-wasip2/release/entangle_json_pointer.wasm --b3sum /tmp/entangle-release-followup/tools/b3sum",
+  "claim": "The current native x86 release coordinator dispatched one exact signed JSON Pointer job to a prior c19 emulated AArch64 worker. The coordinator had an empty plugin inventory and zero Wasm executions. The older worker ran exactly one successful guest invocation on the same physical Linux host.",
+  "argv": [
+    "python3",
+    "-B",
+    "docs/testing/production-review/evidence/candidate-296b427a/mixed-release-arm64/exercise.py",
+    "--repo",
+    ".",
+    "--out",
+    "docs/testing/production-review/evidence/candidate-296b427a/mixed-release-arm64",
+    "--work",
+    "/workspace/entangle-mix-296b.3eCSwyYF",
+    "--x86",
+    "target/release-candidate/296b427a3bb2/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "--x86-receipt",
+    "docs/testing/production-review/evidence/candidate-296b427a/linux-archive.json",
+    "--arm",
+    "target/release-candidate/c19ef7587a22-aarch64/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz",
+    "--arm-receipt",
+    "docs/testing/production-review/evidence/candidate-c19ef758/emulated-linux-arm64/arm-archive.json",
+    "--wasm",
+    "target/catalog-smoke/wasm32-wasip2/release/entangle_json_pointer.wasm",
+    "--b3sum",
+    "/tmp/entangle-release-followup/tools/b3sum"
+  ],
+  "emulator_packages": [
+    "qemu-user 1:10.0.13+ds-0+deb13u1 ca6ede739327a20ae5a3498230c8a3a9a072c586e131bc6bcc1201eb1725e336",
+    "libc6-arm64-cross 2.41-11cross1 82cd3a0c6754d36cb5a7acbd9fa64c38080a681608c41165736dc88438acfc71",
+    "libgcc-s1-arm64-cross 14.2.0-19cross1 272751f04dc1669c6368005ccea3496b28626c720c64c98980f705350f4c6b6b",
+    "libstdc++6-arm64-cross 14.2.0-19cross1 81e667b7dad2d378defcc502e9772fe4f435a27e62b7a33a20576885b02e9693"
+  ]
+}

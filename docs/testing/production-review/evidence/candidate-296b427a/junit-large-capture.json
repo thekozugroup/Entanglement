@@ -1,0 +1,23 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-296b427a/junit/large-capture.py",
+    "--repo",
+    ".",
+    "--bin-dir",
+    "target/release",
+    "--manifest",
+    "docs/testing/production-review/evidence/candidate-296b427a/linux-archive.json",
+    "--wasm",
+    "/tmp/entangle-test-runner-qualification/captures.wasm",
+    "--output",
+    "docs/testing/production-review/evidence/candidate-296b427a/junit/captures.json.gz"
+  ],
+  "started_utc": "2026-11-27T08:34:18.216197+00:00",
+  "finished_utc": "2026-11-27T08:34:27.267145+00:00",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-296b427a/junit-large-capture.log",
+  "sha256": "160573f8c47bb9f5baf05ca0c046af1c1dad0248a3690eb956b3c881cd4854ca"
+}

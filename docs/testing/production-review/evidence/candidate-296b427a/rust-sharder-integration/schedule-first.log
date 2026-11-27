@@ -1,0 +1,9 @@
+before 1394 1331.225299
+after 689 0.0
+after 707 0.0
+before 1394 1355.279513
+after 1134 0.0
+before 1371 1305.361768
+before 1372 1316.662834
+after 683 0.0
+0 {'before': {'all_suite_elapsed_ms': [1394, 1394, 1371, 1372], 'median_suite_elapsed_ms': 1383.0, 'all_double_one_other_idle_ms': [1331.225299, 1355.279513, 1305.361768, 1316.662834], 'max_parallel_guest_invocations_per_peer': [2, 2, 2, 2]}, 'after': {'all_suite_elapsed_ms': [689, 707, 1134, 683], 'median_suite_elapsed_ms': 698.0, 'all_double_one_other_idle_ms': [0.0, 0.0, 0.0, 0.0], 'max_parallel_guest_invocations_per_peer': [1, 1, 1, 1]}}

@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/tmp/entangle-signed-libtest-replay.klXpLSa9/verify.py", line 395, in <module>
+    main()
+  File "/tmp/entangle-signed-libtest-replay.klXpLSa9/verify.py", line 336, in main
+    old_coordinator.start(stack, 0, [])
+  File "/workspace/Entanglement/scripts/tests/distributed-rust-tests.py", line 70, in start
+    raise RuntimeError(log_path.read_text())
+RuntimeError: Error: startup policy check failed (spec §11 #16)
+
+Caused by:
+    ENTANGLE-E0050: daemon is in multi-node mode but peer allowlist is empty
+

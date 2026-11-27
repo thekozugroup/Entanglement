@@ -1,0 +1,179 @@
+{
+  "started_at_utc": "2026-11-27T08:35:20+00:00",
+  "commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "scope": "Current 296b427a x86_64 GNU/Linux CLI/daemon and prior c19ef758 AArch64 GNU/Linux CLI/daemon under explicit QEMU user mode. One x86_64 physical host, one network-disconnected container, and distinct loopback Iroh QUIC identities. Both binaries report v0.1.0.",
+  "inputs": {
+    "x86": {
+      "source_commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+      "source_id": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+      "archive": "target/release-candidate/296b427a3bb2/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "archive_size": 28937164,
+      "archive_sha256": "871f154179c2387c76a09101e6316d5e242b6f6b144fa4bc98932bb164f31132",
+      "archive_blake3": "477bb4c625b278d32548570461266fe7206bc340cea17ae028cc29a2f2b80c71",
+      "sidecar_sha256": {
+        "sha256": "d0ca739b4319b6ee774f2f712ef1c247430e6247ea3e3336774735cf5b88642e",
+        "b3": "3e6918f6514f60ced51f9ac7a4a39774e4d1c7cc11e53f8b34ba8b6cd9f854c3"
+      },
+      "archive_receipt_sha256": "092d67d43485a992ea819b5867b54100f9e10cd8d89b857f7dd289ed7c0672ed",
+      "elf_sha256": {
+        "entangle": "bbe332a3da4d23516930d50b3439ffa7fd2f6a0530fd14cd9329f27058baca02",
+        "entangled": "a581695b1ac2b939391501d3daef987ad188bddcd85a473ab661a7a1a31e936e"
+      },
+      "machine": "Advanced Micro Devices X86-64",
+      "versions": {
+        "entangle": "entangle 0.1.0",
+        "entangled": "entangled 0.1.0"
+      }
+    },
+    "arm": {
+      "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+      "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+      "archive": "target/release-candidate/c19ef7587a22-aarch64/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz",
+      "archive_size": 26045750,
+      "archive_sha256": "5c8d7d283ade96af17665d4d103a2a8a904cf0502cb1170441e7267c5e235de6",
+      "archive_blake3": "9ebacfd81cfb5784f9feca76da997bd1839e746899f13b590d405e37e9a6cbb6",
+      "sidecar_sha256": {
+        "sha256": "ecc1bb223518d3ddcf560ee18d5fff94e42b6f926f87a6aec60e592470d11d8c",
+        "b3": "e8422a689867bee3a97290cfffd704b0929b17a4fdeb7d697d9b578f1c35198b"
+      },
+      "archive_receipt_sha256": "c9377fc70d23be1cc180394f0195f87098639c808e563694d82a29764530deaa",
+      "elf_sha256": {
+        "entangle": "9baf5b5dc73f918cb7aee1ea2039f10f87577ebe53782edba6b8b29a5c60d7a3",
+        "entangled": "0ecbeb35f5b34e1f4da82957321ed6d2ae8d1e296f883e8aee65119998e24b19"
+      },
+      "machine": "AArch64",
+      "versions": {
+        "entangle": "entangle 0.1.0",
+        "entangled": "entangled 0.1.0"
+      }
+    }
+  },
+  "fixture": {
+    "plugin": "json-pointer@0.1.0",
+    "component_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+    "manifest_sha256": "7675f1e036b27128efe45ee79779674568c3f944528966bf4857f7ae54627aed",
+    "matching_source_git_trees": {
+      "296b427a3bb2d60615ea3c56b9779f97039c6e24": "14a946aac15de3b9952eebe0bba5c82e47565b6a",
+      "c19ef7587a2215ef9434b642413bebd0473caf20": "14a946aac15de3b9952eebe0bba5c82e47565b6a"
+    },
+    "wasm_path": "target/catalog-smoke/wasm32-wasip2/release/entangle_json_pointer.wasm"
+  },
+  "emulation": {
+    "emulator_sha256": "73cc2584f119f9e74c85c0a8549dbb6fd104ae3897a06a7500797f9e5b4d0943",
+    "arm_loader_sha256": "393ca646b316f6cb31dc82dc72becff344bf6491458f98c07036fea73f1db55e",
+    "runtime_packages": [
+      "qemu-user 1:10.0.13+ds-0+deb13u1 ca6ede739327a20ae5a3498230c8a3a9a072c586e131bc6bcc1201eb1725e336",
+      "libc6-arm64-cross 2.41-11cross1 82cd3a0c6754d36cb5a7acbd9fa64c38080a681608c41165736dc88438acfc71",
+      "libgcc-s1-arm64-cross 14.2.0-19cross1 272751f04dc1669c6368005ccea3496b28626c720c64c98980f705350f4c6b6b",
+      "libstdc++6-arm64-cross 14.2.0-19cross1 81e667b7dad2d378defcc502e9772fe4f435a27e62b7a33a20576885b02e9693"
+    ],
+    "provision_recipe_sha256": "2b07fea53cb7b7c7606dfe47913f5a3db8839e81f2091b498f91ff1aaea4843e",
+    "provision_log_sha256": "35e7a98e8ac51fea48eab3a7843d577eb0697f677f2c711fe946485d103566cf",
+    "emulator_version": "qemu-aarch64 version 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1)\nCopyright (c) 2003-2025 Fabrice Bellard and the QEMU Project developers",
+    "arm_loader_version": "ld.so (Debian GLIBC 2.41-11) stable release version 2.41."
+  },
+  "container": {
+    "image": "debian@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0",
+    "image_id": "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+    "network_mode": "none",
+    "security": [
+      "name=seccomp,profile=builtin",
+      "name=rootless",
+      "name=cgroupns"
+    ],
+    "id": "a07b50480054389c983cf4dee21fc8809cbd8646b7df7c3fc09034fb0592ea0c"
+  },
+  "nodes": {
+    "x86": {
+      "peer": "acd3642e4353c3e038d1ab5561a70524",
+      "public_key": "02cd81fa79263de7e6508b812fd806edf8ecd8c8e4560a2e517db092cd11c6f4",
+      "plugin": "acd3642e4353c3e038d1ab5561a70524/json-pointer@0.1.0",
+      "port": 28443,
+      "home": "/work/x86",
+      "mesh_status": {
+        "libtest_remote_codes": 1,
+        "local_peer_id": "acd3642e4353c3e038d1ab5561a70524",
+        "local_display_name": "a07b50480054",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "process_executable": "/fixture/x86/entangled",
+      "daemon_exit_code": 0
+    },
+    "arm": {
+      "peer": "b669f2bc0e63284c6826edf3f76793fc",
+      "public_key": "73c4e1ea6062c089f9d0472bbb74b01af7d23703d4db8756943f6fb4139a24aa",
+      "plugin": "b669f2bc0e63284c6826edf3f76793fc/json-pointer@0.1.0",
+      "port": 18443,
+      "home": "/work/arm",
+      "mesh_status": {
+        "local_peer_id": "b669f2bc0e63284c6826edf3f76793fc",
+        "local_display_name": "a07b50480054",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "process_executable": "/emulator/qemu-aarch64",
+      "daemon_exit_code": 0
+    }
+  },
+  "signing": {
+    "package_owner": "296b x86 coordinator",
+    "worker_rejected_before_publisher_trust": 1,
+    "worker_rejection": "error: rpc -32000: server error: signature: ENTANGLE-E0101: publisher fingerprint not in keyring\n",
+    "package_file_sha256": {
+      "entangle.toml": "136e6a714ed799b222a034786a73e72435f94e299751814ed11bab3dc17baf27",
+      "plugin.wasm": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+      "plugin.wasm.sig": "430f1394e5f544b1af2c115fcff6a576791fb066ba98c15c98a5d3ae8deeaa51"
+    }
+  },
+  "dispatch": {
+    "exit_code": 0,
+    "pointer": "#/paths/~1health/get/responses/200/description",
+    "input": "{\"pointer\":\"#/paths/~1health/get/responses/200/description\",\"data\":{\"paths\":{\"/health\":{\"get\":{\"responses\":{\"200\":{\"description\":\"Ready from release fixture 3db7a66191568adf91e7707b7890de71\"}}}}}}}",
+    "chosen_peer": "b669f2bc0e63284c6826edf3f76793fc",
+    "output": "\"Ready from release fixture 3db7a66191568adf91e7707b7890de71\"",
+    "expected": "\"Ready from release fixture 3db7a66191568adf91e7707b7890de71\"",
+    "output_sha256": "f80ccb7536b37d65488ff34f40d77e5f3c3b556522eb6dddbd73e158c496cfe8",
+    "placement": "Chosen: b669f2bc0e63284c6826edf3f76793fc (score=2.09)\nReason: fit ok, rtt=42ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+    "coordinator_loaded_plugins": [],
+    "worker_loaded_plugins": [
+      "acd3642e4353c3e038d1ab5561a70524/json-pointer@0.1.0"
+    ],
+    "before": {
+      "x86": {
+        "ok": 0,
+        "error": 0
+      },
+      "arm": {
+        "ok": 0,
+        "error": 0
+      }
+    },
+    "after": {
+      "x86": {
+        "ok": 0,
+        "error": 0
+      },
+      "arm": {
+        "ok": 1,
+        "error": 0
+      }
+    }
+  },
+  "daemon_log_sha256": {
+    "x86": "3465d6d1545eaf3090bc72f87d7968efab040c36b6f92f638dbcc79c60eebb23",
+    "arm": "9e62068f343a77de38bd45d405a3ac246aa05d808e0ad1bd6d77aa9ee6f87826"
+  },
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "exit_code": 0,
+  "finished_at_utc": "2026-11-27T08:36:20+00:00",
+  "command_log_sha256": "7cf27d4441c46dfde1dad59a90e025e874a56ea35f40411597c6f52b5497e0d3",
+  "runner_sha256": "9d4bf3880c7876854ea3a48d6aa285ca167febc4926e39fb9ad34cebad03a7ed"
+}

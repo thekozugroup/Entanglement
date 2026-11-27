@@ -1,0 +1,130 @@
+{
+  "C1": {
+    "outcome": {
+      "whole_fixture_rc": 1
+    },
+    "first_dispatch": 0.0,
+    "failures": {
+      "no-route": 84
+    },
+    "latest_failed_dispatch": 27.848,
+    "successful_dispatch_began": 28.101,
+    "successful_dispatch_returned": 28.244,
+    "actual_status_on_coordinator": [
+      [
+        -32.408,
+        true,
+        "entangled"
+      ],
+      [
+        -2.256,
+        false,
+        "entangled"
+      ],
+      [
+        27.893,
+        true,
+        "entangled"
+      ]
+    ],
+    "independent_coordinator_status_changes": [
+      [
+        -33.1,
+        true
+      ],
+      [
+        -4.644,
+        false
+      ],
+      [
+        0.207,
+        true
+      ]
+    ],
+    "worker_bind_changes": [
+      [
+        -33.122,
+        true
+      ],
+      [
+        -13.202,
+        false
+      ],
+      [
+        2.322,
+        true
+      ]
+    ],
+    "coordinator_bind_changes": [
+      [
+        -33.1,
+        true
+      ]
+    ],
+    "offline_duration": 14.000134594003612
+  },
+  "C2": {
+    "outcome": {
+      "whole_fixture_rc": 1
+    },
+    "first_dispatch": 0.0,
+    "failures": {
+      "no-route": 83
+    },
+    "latest_failed_dispatch": 27.67,
+    "successful_dispatch_began": 27.921,
+    "successful_dispatch_returned": 28.004,
+    "actual_status_on_coordinator": [
+      [
+        -32.513,
+        true,
+        "entangled"
+      ],
+      [
+        -2.343,
+        false,
+        "entangled"
+      ],
+      [
+        27.803,
+        true,
+        "entangled"
+      ]
+    ],
+    "independent_coordinator_status_changes": [
+      [
+        -32.776,
+        true
+      ],
+      [
+        -3.532,
+        false
+      ],
+      [
+        0.533,
+        true
+      ]
+    ],
+    "worker_bind_changes": [
+      [
+        -33.051,
+        true
+      ],
+      [
+        -13.186,
+        false
+      ],
+      [
+        2.358,
+        true
+      ]
+    ],
+    "coordinator_bind_changes": [
+      [
+        -32.776,
+        true
+      ]
+    ],
+    "offline_duration": 14.000187499994354
+  }
+}

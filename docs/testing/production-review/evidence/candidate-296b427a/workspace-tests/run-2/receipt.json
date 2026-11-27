@@ -1,0 +1,32 @@
+{
+  "command": "cargo test --locked --workspace --no-fail-fast",
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "claim": "Locked workspace suite 2 using default libtest threading.",
+  "source_commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_commit_after": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_id": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_matches": true,
+  "started_at_utc": "2026-11-27T08:27:15+00:00",
+  "finished_at_utc": "2026-11-27T08:28:51+00:00",
+  "observed_at_utc": "2026-11-27T08:28:51+00:00",
+  "exit_code": 0,
+  "path": "docs/testing/production-review/evidence/candidate-296b427a/workspace-tests/run-2/test.log",
+  "sha256": "3b3d98e8a940e8b29375114a37dc3cd708eb47d37ff08e3c44018fddde7a5428",
+  "result_groups": 105,
+  "failed_result_groups": 0,
+  "tests": {
+    "passed": 787,
+    "failed": 0,
+    "ignored": 29,
+    "measured": 0,
+    "filtered_out": 0
+  }
+}

@@ -1,0 +1,2 @@
+{"timestamp":"2026-11-27T08:35:41.573462Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/ent-libtest-z7rr4dw3/worker-1/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T08:35:57.318769Z","level":"WARN","fields":{"message":"scheduler: remote task failed","peer":"fd9f67790e6dcf0dec7b5df78a990d33","error":"host: ENTANGLE-E0504: timed out after 750ms"},"target":"entangle_scheduler::remote"}

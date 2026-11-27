@@ -1,0 +1,26 @@
+   Compiling entangle-types v0.1.0 (/workspace/Entanglement/crates/entangle-types)
+   Compiling entangle-biscuits v0.1.0 (/workspace/Entanglement/crates/entangle-biscuits)
+   Compiling entangle-peers v0.1.0 (/workspace/Entanglement/crates/entangle-peers)
+   Compiling entangle-signing v0.1.0 (/workspace/Entanglement/crates/entangle-signing)
+   Compiling entangle-manifest v0.1.0 (/workspace/Entanglement/crates/entangle-manifest)
+   Compiling entangle-broker v0.1.0 (/workspace/Entanglement/crates/entangle-broker)
+   Compiling entangle-core v0.1.0 (/workspace/Entanglement/crates/entangle-core)
+   Compiling entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+   Compiling entangle-ipc v0.1.0 (/workspace/Entanglement/crates/entangle-ipc)
+   Compiling entangle-mesh-iroh v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-iroh)
+   Compiling entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+   Compiling entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+   Compiling entangle-rpc v0.1.0 (/workspace/Entanglement/crates/entangle-rpc)
+   Compiling entangle-mesh-tailscale v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-tailscale)
+   Compiling entangle-mesh-local v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-local)
+   Compiling entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+    Finished `test` profile [unoptimized] target(s) in 27.38s
+     Running tests/daemon_compute.rs (target/debug/deps/daemon_compute-3adfba4b9251a17a)
+
+running 1 test
+{"timestamp":"2026-11-27T08:33:00.520443Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpSBtgLL/b/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T08:33:01.231050Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpSBtgLL/a/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+test discovers_and_runs_work_without_a_configured_peer_address ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 18.05s
+

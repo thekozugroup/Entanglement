@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-296b427a/qa-rpc-boundaries.py"
+  ],
+  "started_utc": "2026-11-27T08:40:12.108074+00:00",
+  "finished_utc": "2026-11-27T08:40:12.326627+00:00",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-296b427a/qa-rpc-boundaries-repro.log",
+  "sha256": "1f6e922a1e9015f86816c0dc92482c542d3848654c3ca732acd207b4b13ddd44",
+  "test_source_sha256": "ac85c758f7ea9eec5a14517d0c692b4dadf48472dc5125e22212e5133f808123"
+}

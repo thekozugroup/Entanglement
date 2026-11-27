@@ -1,0 +1,21 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-296b427a/junit/verify.py",
+    "--script",
+    "scripts/rust-test-junit.py",
+    "--result",
+    "docs/testing/production-review/evidence/candidate-296b427a/junit/current-read.json",
+    "docs/testing/production-review/evidence/candidate-296b427a/distributed-rust-release.json",
+    "docs/testing/production-review/evidence/candidate-296b427a/rust-libtest-native-oracle/results.json",
+    "docs/testing/production-review/evidence/candidate-296b427a/distributed-rust-workspace/multi-suite.json.gz",
+    "docs/testing/production-review/evidence/candidate-296b427a/rust-sharder-integration/identity-first.json"
+  ],
+  "started_utc": "2026-11-27T08:36:43.631167+00:00",
+  "finished_utc": "2026-11-27T08:36:45.373149+00:00",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "exit_code": 1,
+  "log": "docs/testing/production-review/evidence/candidate-296b427a/junit-current-consumer.log",
+  "sha256": "f19b5810bfa490daaf11d8bc4bcb1efaa7c22c003926a5f0e09c284d08583379"
+}

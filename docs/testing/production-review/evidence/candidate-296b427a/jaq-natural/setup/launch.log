@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/tmp/entangle-demand-qa/jaq-natural/campaign.py", line 114, in <module>
+    if __name__=='__main__':raise SystemExit(main())
+                                             ^^^^^^
+  File "/tmp/entangle-demand-qa/jaq-natural/campaign.py", line 108, in main
+    stored['remote_patterns']=dict(collections.Counter(tuple_to_text(r['status']for r in b['remote']['results'][0]['attempts']) if 'remote' in b else 'error' for b in blocks))
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/collections/__init__.py", line 607, in __init__
+    self.update(iterable, **kwds)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/collections/__init__.py", line 699, in update
+    _count_elements(self, iterable)
+  File "/tmp/entangle-demand-qa/jaq-natural/campaign.py", line 108, in <genexpr>
+    stored['remote_patterns']=dict(collections.Counter(tuple_to_text(r['status']for r in b['remote']['results'][0]['attempts']) if 'remote' in b else 'error' for b in blocks))
+                                                                                         ~~~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: list index out of range

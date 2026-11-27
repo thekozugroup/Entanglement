@@ -1,0 +1,349 @@
+{
+  "retained-route": {
+    "exit_code": 0,
+    "before": {
+      "head": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+      "source": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b"
+    },
+    "after": {
+      "head": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+      "source": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b"
+    },
+    "files": {
+      "coordinator-consumed.jsonl": {
+        "stored": "coordinator-consumed.jsonl.gz",
+        "raw_sha256": "6f9f253d2195744fa0539323502e57ed9aee0ad8357c7c27759f65eb984e27f8",
+        "stored_sha256": "ef4782e1b29928b738b2688ba2f0637156a4bc825e2167848c6557399d306186"
+      },
+      "coordinator-endpoint.log": {
+        "stored": "coordinator-endpoint.log.gz",
+        "raw_sha256": "47a11ced5e4daf63324b722885f9cf04e6278a665a9fe71e1f80cc3ac74b5890",
+        "stored_sha256": "bbf4f09ef0d483b37b728f932f1adcd70e34601a6f36804a5cfc4a610eb586ec"
+      },
+      "coordinator-observer.jsonl": {
+        "stored": "coordinator-observer.jsonl.gz",
+        "raw_sha256": "2267092740e659353fa22bbe3c0125358d9a62d2da55f12017aab7e061c19e66",
+        "stored_sha256": "f4b04e5affb66b4ea26770d6e08e4f9bf682220774166a725b6f1fc64c4bd6db"
+      },
+      "events.jsonl": {
+        "stored": "events.jsonl.gz",
+        "raw_sha256": "6c28d0004b3f573cd75ed13d1c385038cc7c760d0fcfb6fbb9bf76eb0db4cda3",
+        "stored_sha256": "30864f0779c33dd22675287eefd6bc3823fdea0a712eb9cfa44bbc91d61a6017"
+      },
+      "phase-analysis.json": {
+        "stored": "phase-analysis.json",
+        "raw_sha256": "1f635e9fea7600e8a3055731769da08fa7957a79411ea76332785308e52341fd",
+        "stored_sha256": "1f635e9fea7600e8a3055731769da08fa7957a79411ea76332785308e52341fd"
+      },
+      "receipt.json": {
+        "stored": "receipt.json",
+        "raw_sha256": "49a5fbc2c9840f9191c6265939ebd6f2bd8f39b42c93a9a62ff900ee2d9ee49a",
+        "stored_sha256": "49a5fbc2c9840f9191c6265939ebd6f2bd8f39b42c93a9a62ff900ee2d9ee49a"
+      },
+      "result.json": {
+        "stored": "result.json",
+        "raw_sha256": "bb054ff52bc80af31ddf8cff29e6d58b9f1318b0831551fdd797f90e8b627b0e",
+        "stored_sha256": "bb054ff52bc80af31ddf8cff29e6d58b9f1318b0831551fdd797f90e8b627b0e"
+      },
+      "stderr.log": {
+        "stored": "stderr.log.gz",
+        "raw_sha256": "bac4ab2d601e1cd1fca5de1a489fd9012ff26614f4d72fd9fac64c85acfb6676",
+        "stored_sha256": "bfc398ef1a43eb2a7853236c4d4b564a58b56048420bf3b95affa6f5749504a4"
+      },
+      "worker-consumed.jsonl": {
+        "stored": "worker-consumed.jsonl.gz",
+        "raw_sha256": "7eaa2fbc5d58c52208d4fa36f728e37d1dcccbd7fb939de031a2dd1a659a5903",
+        "stored_sha256": "985310176bf29f96b77cbede0beace1851ab5ef9acdde445995450fa0f71988c"
+      },
+      "worker-endpoint.log": {
+        "stored": "worker-endpoint.log.gz",
+        "raw_sha256": "836b6d0682efa3b615bd01c33c757038e721c003e0ac6244c01d5c502fdf7618",
+        "stored_sha256": "6414cfaf54de0974938d2fa06cbd10947cad7913d3ae893aa102f1832f088bb7"
+      },
+      "worker-observer.jsonl": {
+        "stored": "worker-observer.jsonl.gz",
+        "raw_sha256": "3933f465af0727213477bca4c62f76f25523c361263cfce3ee313a6d09ed7a14",
+        "stored_sha256": "882d2711458c684516480a7537e3e00579b112557e5f700085ae50083b2aa705"
+      }
+    }
+  },
+  "sampled-offline": {
+    "exit_code": 1,
+    "before": {
+      "head": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+      "source": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b"
+    },
+    "after": {
+      "head": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+      "source": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b"
+    },
+    "files": {
+      "coordinator-consumed.jsonl": {
+        "stored": "coordinator-consumed.jsonl.gz",
+        "raw_sha256": "2b7cb3a3f9d36db6ee860550ad619967fd0529bcace56ce4392addd15d5e62f0",
+        "stored_sha256": "7c16f907ae2738935df7ca4cfa79bcf7397f58cfeaf6b1201f07f72215e1f581"
+      },
+      "coordinator-endpoint.log": {
+        "stored": "coordinator-endpoint.log.gz",
+        "raw_sha256": "ef4db6e8db1904924a06265c01d55566f4ef1df04fa0655725e8f0c89f9ae2c1",
+        "stored_sha256": "85f76b061e5fa2b5521fcf624554f678f41c7f56908470f2b1b144d422b330c0"
+      },
+      "coordinator-observer.jsonl": {
+        "stored": "coordinator-observer.jsonl.gz",
+        "raw_sha256": "61e82f42dc40b1a3ac83129ec2f518da9405f8c6a3847c41f0b0470213dd3c89",
+        "stored_sha256": "6325abee40ae07df23ff1439e8e653d132612689e266f94a83260f38def4c7ca"
+      },
+      "events.jsonl": {
+        "stored": "events.jsonl.gz",
+        "raw_sha256": "70c59742f8640612bd3c9455b1c75618538d69a90052e7b101f6b18ef4e624cf",
+        "stored_sha256": "3f8d66690491f0895669de54ca0559969b57c2ab434c20630c0342300c82aa76"
+      },
+      "phase-analysis.json": {
+        "stored": "phase-analysis.json",
+        "raw_sha256": "1ae7af3a6d79b042f743498bbc30c186d1630a36e73d75b9c1ebf5d4e517b164",
+        "stored_sha256": "1ae7af3a6d79b042f743498bbc30c186d1630a36e73d75b9c1ebf5d4e517b164"
+      },
+      "receipt.json": {
+        "stored": "receipt.json",
+        "raw_sha256": "0ad40675a08e053b25f9a74cb89560ae942c8fa271e4ad3cc6797b0418b38001",
+        "stored_sha256": "0ad40675a08e053b25f9a74cb89560ae942c8fa271e4ad3cc6797b0418b38001"
+      },
+      "result.json": {
+        "stored": "result.json",
+        "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stored_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr.log": {
+        "stored": "stderr.log.gz",
+        "raw_sha256": "cad826446e185d2f9ad0b7388ae66e1caa7345a0039403873353aa7d2259a4ac",
+        "stored_sha256": "4b38037635386cf5c812ddde3281a4b7b50859d174fd1fe34067d8218f495e65"
+      },
+      "worker-consumed.jsonl": {
+        "stored": "worker-consumed.jsonl.gz",
+        "raw_sha256": "a486afe5ce41c1c448b44ad3bfcd02a98a1d10473bc77fc7723168358d536018",
+        "stored_sha256": "318f4e443a53e9301a03a60bf6ef71bfa68d0d0e3033a674ab6d12faf598b449"
+      },
+      "worker-endpoint.log": {
+        "stored": "worker-endpoint.log.gz",
+        "raw_sha256": "2ff02b9e368d6765a9c060371de84c2aa387bb9daf0747582de4d63fba440aec",
+        "stored_sha256": "a5508490f7aa938dde2c37e934d86a9278ce51c34a6dd8fed5708fd8e8575e58"
+      },
+      "worker-observer.jsonl": {
+        "stored": "worker-observer.jsonl.gz",
+        "raw_sha256": "b748802bd26d51b92fcf292f7921d9d7bfa7e255d9ebb3971066b1a43625306d",
+        "stored_sha256": "4a90b584f1a077482021269b402d472887791d48c172d0ad88448a48a5563a34"
+      }
+    }
+  },
+  "source": {
+    "head": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+    "source": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b"
+  },
+  "sha256": {
+    "entangle": "bbe332a3da4d23516930d50b3439ffa7fd2f6a0530fd14cd9329f27058baca02",
+    "entangled": "a581695b1ac2b939391501d3daef987ad188bddcd85a473ab661a7a1a31e936e"
+  },
+  "archive_sha256": "871f154179c2387c76a09101e6316d5e242b6f6b144fa4bc98932bb164f31132",
+  "guest_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "scope": "two Linux network namespaces on one x86_64 physical host",
+  "arms": {
+    "A1": {
+      "phase_after_coordinator_healthy_snapshot_s": 1,
+      "stopped_s": 14.0,
+      "route_failures": 0,
+      "overlay_to_success_s": 10.168,
+      "worker_first_sampled_rebound_s": 7.508,
+      "supervisor_read_online": [
+        [
+          -16.349,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -17.04,
+          true
+        ],
+        [
+          -4.1,
+          false
+        ],
+        [
+          -0.023,
+          true
+        ]
+      ]
+    },
+    "B1": {
+      "phase_after_coordinator_healthy_snapshot_s": 21,
+      "stopped_s": 14.001,
+      "route_failures": 0,
+      "overlay_to_success_s": 1.112,
+      "worker_first_sampled_rebound_s": 0.52,
+      "supervisor_read_online": [
+        [
+          -36.603,
+          true,
+          "entangled"
+        ],
+        [
+          -6.422,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -37.47,
+          true
+        ],
+        [
+          -4.177,
+          false
+        ],
+        [
+          -0.065,
+          true
+        ]
+      ]
+    },
+    "B2": {
+      "phase_after_coordinator_healthy_snapshot_s": 21,
+      "stopped_s": 14.001,
+      "route_failures": 0,
+      "overlay_to_success_s": 3.131,
+      "worker_first_sampled_rebound_s": 2.343,
+      "supervisor_read_online": [
+        [
+          -36.6,
+          true,
+          "entangled"
+        ],
+        [
+          -6.387,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -36.954,
+          true
+        ],
+        [
+          -4.542,
+          false
+        ],
+        [
+          0.359,
+          true
+        ]
+      ]
+    },
+    "A2": {
+      "phase_after_coordinator_healthy_snapshot_s": 1,
+      "stopped_s": 14.0,
+      "route_failures": 0,
+      "overlay_to_success_s": 3.163,
+      "worker_first_sampled_rebound_s": 2.35,
+      "supervisor_read_online": [
+        [
+          -16.381,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -17.101,
+          true
+        ],
+        [
+          -4.089,
+          false
+        ],
+        [
+          0.765,
+          true
+        ]
+      ]
+    },
+    "C1": {
+      "phase_after_coordinator_healthy_snapshot_s": 17,
+      "stopped_s": 14.0,
+      "route_failures": 84,
+      "overlay_to_success_s": 28.244,
+      "worker_first_sampled_rebound_s": 2.322,
+      "supervisor_read_online": [
+        [
+          -32.408,
+          true,
+          "entangled"
+        ],
+        [
+          -2.256,
+          false,
+          "entangled"
+        ],
+        [
+          27.893,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -33.1,
+          true
+        ],
+        [
+          -4.644,
+          false
+        ],
+        [
+          0.207,
+          true
+        ]
+      ]
+    },
+    "C2": {
+      "phase_after_coordinator_healthy_snapshot_s": 17,
+      "stopped_s": 14.0,
+      "route_failures": 83,
+      "overlay_to_success_s": 28.004,
+      "worker_first_sampled_rebound_s": 2.358,
+      "supervisor_read_online": [
+        [
+          -32.513,
+          true,
+          "entangled"
+        ],
+        [
+          -2.343,
+          false,
+          "entangled"
+        ],
+        [
+          27.803,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -32.776,
+          true
+        ],
+        [
+          -3.532,
+          false
+        ],
+        [
+          0.533,
+          true
+        ]
+      ]
+    }
+  }
+}

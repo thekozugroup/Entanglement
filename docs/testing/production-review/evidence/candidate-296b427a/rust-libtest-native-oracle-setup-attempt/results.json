@@ -1,0 +1,1270 @@
+{
+  "source_commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "started_utc": "2026-11-27T08:34:17.456520+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "/tmp/entangle-signed-libtest-replay.klXpLSa9/verify.py",
+    "--repo",
+    "/workspace/Entanglement",
+    "--archive",
+    "/workspace/Entanglement/target/release-candidate/296b427a3bb2/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "--verification",
+    "/workspace/Entanglement/target/release-candidate/296b427a3bb2/verification.json",
+    "--legacy-archive",
+    "/workspace/Entanglement/target/release-candidate/c19ef7587a22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "--legacy-verification",
+    "/workspace/Entanglement/target/release-candidate/c19ef7587a22/verification.json",
+    "--rustc",
+    "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustc",
+    "--b3sum",
+    "/tmp/entanglement-release-check.zM5PAQ/usr/bin/b3sum",
+    "--out",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-296b427a/rust-libtest-native-oracle"
+  ],
+  "release_archive": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "release_archive_sha256": "871f154179c2387c76a09101e6316d5e242b6f6b144fa4bc98932bb164f31132",
+  "release_manifest_sha256": "092d67d43485a992ea819b5867b54100f9e10cd8d89b857f7dd289ed7c0672ed",
+  "driver_sha256": "b0366d0ad2902c5d6ae80b3e3bd94cec5f97c13b7f90656ec58ce8c86cbd29fe",
+  "operator_sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "topology_helper_sha256": "2244229b57651c6e908c50f4ddc86a43221ac16743dd89429f9e372621f43627",
+  "rustc_vv": "rustc 1.91.1 (ed61e7d7e 2025-11-07)\nbinary: rustc\ncommit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb\ncommit-date: 2025-11-07\nhost: x86_64-unknown-linux-gnu\nrelease: 1.91.1\nLLVM version: 21.1.2",
+  "rustc_sha256": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e",
+  "b3sum_version": "b3sum 1.8.1",
+  "b3sum_sha256": "7c2bd17e8eb6af190c7d120239fb3dbc59b4f6984d7a6c01f35fce2c108b8e0d",
+  "compile": {
+    "selectors": {
+      "source_sha256": "3beee3e13892ee49230efb4dc2a22c126dfbc2775c159de30add18bf55699fe0",
+      "native": {
+        "command": [
+          "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustc",
+          "--test",
+          "--edition",
+          "2021",
+          "/tmp/entangle-signed-libtest-replay.klXpLSa9/selectors.rs",
+          "-o",
+          "/tmp/ent-libtest-lcdni6us/selectors.native"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.7705157379969023,
+        "sha256": "9f8ca6c10b610bfcfeae30d17df6ea6229ca97cb87b72b0e3b0ecc07569466ac"
+      },
+      "wasm32-wasip2": {
+        "command": [
+          "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustc",
+          "--test",
+          "--edition",
+          "2021",
+          "--target",
+          "wasm32-wasip2",
+          "/tmp/entangle-signed-libtest-replay.klXpLSa9/selectors.rs",
+          "-o",
+          "/tmp/ent-libtest-lcdni6us/selectors.wasm32-wasip2"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 1.4696525920007844,
+        "sha256": "cf0b557db4271b7d8758504e5a9b8d5125f3d0d50933e98595d6375384a7aead"
+      }
+    },
+    "diagnostics": {
+      "source_sha256": "5441607776c9c80aace3215d74245e92ad98e145e29a0252ef78c12005fcabd4",
+      "native": {
+        "command": [
+          "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustc",
+          "--test",
+          "--edition",
+          "2021",
+          "/tmp/entangle-signed-libtest-replay.klXpLSa9/diagnostics.rs",
+          "-o",
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.702137201995356,
+        "sha256": "b00aa10d41db4727687c6404b1b3df69ba0f2879fd05234af535c33f73ce708c"
+      },
+      "wasm32-wasip2": {
+        "command": [
+          "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustc",
+          "--test",
+          "--edition",
+          "2021",
+          "--target",
+          "wasm32-wasip2",
+          "/tmp/entangle-signed-libtest-replay.klXpLSa9/diagnostics.rs",
+          "-o",
+          "/tmp/ent-libtest-lcdni6us/diagnostics.wasm32-wasip2"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 1.1813684989974718,
+        "sha256": "706f57be3faa22fa1a54e173e337a692ad52ebba93609d11d8beac411e852284"
+      }
+    },
+    "deadline": {
+      "source_sha256": "873d09666022d085d277b893b48b489c03899acadb2bd6f85e17b93645d79a35",
+      "wasm32-wasip2": {
+        "command": [
+          "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustc",
+          "--test",
+          "--edition",
+          "2021",
+          "--target",
+          "wasm32-wasip2",
+          "/tmp/entangle-signed-libtest-replay.klXpLSa9/deadline.rs",
+          "-o",
+          "/tmp/ent-libtest-lcdni6us/deadline.wasm32-wasip2"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.5964806120027788,
+        "sha256": "8b33902dac48cabc67fb1ac42bd588086c716d6708506eb1f2bd453687b2e932"
+      }
+    }
+  },
+  "packages": {
+    "selectors": {
+      "id": "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0",
+      "pin": {
+        "artifact_blake3": "94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f",
+        "manifest_blake3": "e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c"
+      },
+      "sha256": {
+        "entangle.toml": "7a1ae13410d14faadd704a8ff4a1bb8ca9451a75d6db6ddbea87573d10372790",
+        "plugin.wasm": "cf0b557db4271b7d8758504e5a9b8d5125f3d0d50933e98595d6375384a7aead",
+        "plugin.wasm.sig": "004a3669cdab113b261be6179cecd590ff6657ad89d836a0ec3a95271370b591"
+      }
+    },
+    "diagnostics": {
+      "id": "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+      "pin": {
+        "artifact_blake3": "53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e",
+        "manifest_blake3": "4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f"
+      },
+      "sha256": {
+        "entangle.toml": "65dc5f2ff817fd4ca392ebe6fe3916cf8aa314a3f14c4c09e9e0191cdae19f03",
+        "plugin.wasm": "706f57be3faa22fa1a54e173e337a692ad52ebba93609d11d8beac411e852284",
+        "plugin.wasm.sig": "76770f86af6578bb169335af8fed64ff02fc16208076b632d5ddef8caf0680a9"
+      }
+    },
+    "deadline": {
+      "id": "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-deadline@0.1.0",
+      "pin": {
+        "artifact_blake3": "5c73ab660f13f1e2c1a7145e735bf4d94aab610bbcfc39c6d21c26b126bca600",
+        "manifest_blake3": "dd116c037cb89d271962b62cd5340e77ea147c830b043e6e2615a265f42fe332"
+      },
+      "sha256": {
+        "entangle.toml": "e47c877c7863eb68565a040ff1e2f92e81475b70442359226c63d6e3440beba7",
+        "plugin.wasm": "8b33902dac48cabc67fb1ac42bd588086c716d6708506eb1f2bd453687b2e932",
+        "plugin.wasm.sig": "646fcb11382dfc1d8845da5c11736f95b968dcaa2dec1abb365343d4c6ac6e46"
+      }
+    }
+  },
+  "selection": [
+    {
+      "case": "all",
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/selectors.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 8 tests\ntest alpha::first ... ok\ntest alpha::muted ... ignored\ntest alpha::second ... ok\ntest alphabet::first ... ok\ntest beta::first ... ok\ntest beta::muted ... ignored\ntest beta::second ... ok\ntest unrelated ... ok\n\ntest result: ok. 6 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.03s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.029860943999665324
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n        \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 0,\n      \"counts\": {\n        \"passed\": 6,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 2,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 184,\n      \"results\": [\n        {\n          \"name\": \"alpha::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"alpha::muted\",\n          \"attempts\": [],\n          \"status\": \"ignored\"\n        },\n        {\n          \"name\": \"alpha::second\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"307f26e797fab158595c6a1e1af9accd\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"alphabet::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"beta::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"307f26e797fab158595c6a1e1af9accd\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"beta::muted\",\n          \"attempts\": [],\n          \"status\": \"ignored\"\n        },\n        {\n          \"name\": \"beta::second\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"unrelated\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"307f26e797fab158595c6a1e1af9accd\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 6,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 2,\n    \"error\": 0\n  },\n  \"filtered\": 0,\n  \"elapsed_ms\": 184\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.7517619150021346
+      },
+      "native_selection": {
+        "alpha::first": "passed",
+        "alpha::muted": "ignored",
+        "alpha::second": "passed",
+        "alphabet::first": "passed",
+        "beta::first": "passed",
+        "beta::muted": "ignored",
+        "beta::second": "passed",
+        "unrelated": "passed"
+      },
+      "sharded_selection": {
+        "alpha::first": "passed",
+        "alpha::muted": "ignored",
+        "alpha::second": "passed",
+        "alphabet::first": "passed",
+        "beta::first": "passed",
+        "beta::muted": "ignored",
+        "beta::second": "passed",
+        "unrelated": "passed"
+      },
+      "attempt_workers": [
+        "02096d09f8fcbfbec8f1aa65311f1bbf",
+        "307f26e797fab158595c6a1e1af9accd"
+      ]
+    },
+    {
+      "case": "single-substring",
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/selectors.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--skip",
+          "second",
+          "--",
+          "alpha"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 3 tests\ntest alpha::first ... ok\ntest alpha::muted ... ignored\ntest alphabet::first ... ok\n\ntest result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 5 filtered out; finished in 0.03s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.04340021499956492
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--skip",
+          "second",
+          "--filter",
+          "alpha"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n        \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 5,\n      \"counts\": {\n        \"passed\": 2,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 1,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 156,\n      \"results\": [\n        {\n          \"name\": \"alpha::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"alpha::muted\",\n          \"attempts\": [],\n          \"status\": \"ignored\"\n        },\n        {\n          \"name\": \"alphabet::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"307f26e797fab158595c6a1e1af9accd\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 2,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 1,\n    \"error\": 0\n  },\n  \"filtered\": 5,\n  \"elapsed_ms\": 156\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.8447122939978726
+      },
+      "native_selection": {
+        "alpha::first": "passed",
+        "alpha::muted": "ignored",
+        "alphabet::first": "passed"
+      },
+      "sharded_selection": {
+        "alpha::first": "passed",
+        "alpha::muted": "ignored",
+        "alphabet::first": "passed"
+      },
+      "attempt_workers": [
+        "02096d09f8fcbfbec8f1aa65311f1bbf",
+        "307f26e797fab158595c6a1e1af9accd"
+      ]
+    },
+    {
+      "case": "multiple-includes-skips",
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/selectors.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--skip",
+          "alphabet",
+          "--skip",
+          "beta::muted",
+          "--",
+          "first",
+          "muted",
+          "first"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 3 tests\ntest alpha::first ... ok\ntest alpha::muted ... ignored\ntest beta::first ... ok\n\ntest result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 5 filtered out; finished in 0.01s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.0231009470007848
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--skip",
+          "alphabet",
+          "--skip",
+          "beta::muted",
+          "--filter",
+          "first",
+          "--filter",
+          "muted",
+          "--filter",
+          "first"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n        \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 5,\n      \"counts\": {\n        \"passed\": 2,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 1,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 110,\n      \"results\": [\n        {\n          \"name\": \"alpha::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"alpha::muted\",\n          \"attempts\": [],\n          \"status\": \"ignored\"\n        },\n        {\n          \"name\": \"beta::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"307f26e797fab158595c6a1e1af9accd\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 2,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 1,\n    \"error\": 0\n  },\n  \"filtered\": 5,\n  \"elapsed_ms\": 110\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.6800346439995337
+      },
+      "native_selection": {
+        "alpha::first": "passed",
+        "alpha::muted": "ignored",
+        "beta::first": "passed"
+      },
+      "sharded_selection": {
+        "alpha::first": "passed",
+        "alpha::muted": "ignored",
+        "beta::first": "passed"
+      },
+      "attempt_workers": [
+        "02096d09f8fcbfbec8f1aa65311f1bbf",
+        "307f26e797fab158595c6a1e1af9accd"
+      ]
+    },
+    {
+      "case": "single-exact-prefix-skip",
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/selectors.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--exact",
+          "--skip",
+          "alpha::",
+          "--",
+          "alpha::first"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\ntest alpha::first ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.01s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.020918909001920838
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--skip",
+          "alpha::",
+          "--filter",
+          "alpha::first"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n        \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 7,\n      \"counts\": {\n        \"passed\": 1,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 131,\n      \"results\": [\n        {\n          \"name\": \"alpha::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 1,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 7,\n  \"elapsed_ms\": 131\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.6042428410000866
+      },
+      "native_selection": {
+        "alpha::first": "passed"
+      },
+      "sharded_selection": {
+        "alpha::first": "passed"
+      },
+      "attempt_workers": [
+        "02096d09f8fcbfbec8f1aa65311f1bbf"
+      ]
+    },
+    {
+      "case": "multiple-exact-with-exclusions",
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/selectors.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--exact",
+          "--skip",
+          "alpha::",
+          "--skip",
+          "beta::second",
+          "--",
+          "alpha::first",
+          "alpha",
+          "beta::second"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\ntest alpha::first ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.02s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.03083478400367312
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--skip",
+          "alpha::",
+          "--skip",
+          "beta::second",
+          "--filter",
+          "alpha::first",
+          "--filter",
+          "alpha",
+          "--filter",
+          "beta::second"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n        \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 7,\n      \"counts\": {\n        \"passed\": 1,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 112,\n      \"results\": [\n        {\n          \"name\": \"alpha::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 1,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 7,\n  \"elapsed_ms\": 112\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.7008754029957345
+      },
+      "native_selection": {
+        "alpha::first": "passed"
+      },
+      "sharded_selection": {
+        "alpha::first": "passed"
+      },
+      "attempt_workers": [
+        "02096d09f8fcbfbec8f1aa65311f1bbf"
+      ]
+    },
+    {
+      "case": "exact-skips-with-no-includes",
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/selectors.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--exact",
+          "--skip",
+          "alpha::",
+          "--skip",
+          "beta::first",
+          "--"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 7 tests\ntest alpha::first ... ok\ntest alpha::muted ... ignored\ntest alpha::second ... ok\ntest alphabet::first ... ok\ntest beta::muted ... ignored\ntest beta::second ... ok\ntest unrelated ... ok\n\ntest result: ok. 5 passed; 0 failed; 2 ignored; 0 measured; 1 filtered out; finished in 0.05s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.05477238100138493
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--skip",
+          "alpha::",
+          "--skip",
+          "beta::first"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n        \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 1,\n      \"counts\": {\n        \"passed\": 5,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 2,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 172,\n      \"results\": [\n        {\n          \"name\": \"alpha::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"alpha::muted\",\n          \"attempts\": [],\n          \"status\": \"ignored\"\n        },\n        {\n          \"name\": \"alpha::second\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"307f26e797fab158595c6a1e1af9accd\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"alphabet::first\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"beta::muted\",\n          \"attempts\": [],\n          \"status\": \"ignored\"\n        },\n        {\n          \"name\": \"beta::second\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"307f26e797fab158595c6a1e1af9accd\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"unrelated\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 5,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 2,\n    \"error\": 0\n  },\n  \"filtered\": 1,\n  \"elapsed_ms\": 172\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.5402227630038396
+      },
+      "native_selection": {
+        "alpha::first": "passed",
+        "alpha::muted": "ignored",
+        "alpha::second": "passed",
+        "alphabet::first": "passed",
+        "beta::muted": "ignored",
+        "beta::second": "passed",
+        "unrelated": "passed"
+      },
+      "sharded_selection": {
+        "alpha::first": "passed",
+        "alpha::muted": "ignored",
+        "alpha::second": "passed",
+        "alphabet::first": "passed",
+        "beta::muted": "ignored",
+        "beta::second": "passed",
+        "unrelated": "passed"
+      },
+      "attempt_workers": [
+        "02096d09f8fcbfbec8f1aa65311f1bbf",
+        "307f26e797fab158595c6a1e1af9accd"
+      ]
+    },
+    {
+      "case": "only-ignored",
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/selectors.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--ignored",
+          "--skip",
+          "alpha::",
+          "--",
+          "alpha",
+          "beta"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\ntest beta::muted ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.011650230997474864
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--ignored",
+          "--skip",
+          "alpha::",
+          "--filter",
+          "alpha",
+          "--filter",
+          "beta"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n        \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 7,\n      \"counts\": {\n        \"passed\": 1,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 144,\n      \"results\": [\n        {\n          \"name\": \"beta::muted\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 1,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 7,\n  \"elapsed_ms\": 144\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.6633343469948159
+      },
+      "native_selection": {
+        "beta::muted": "passed"
+      },
+      "sharded_selection": {
+        "beta::muted": "passed"
+      },
+      "attempt_workers": [
+        "02096d09f8fcbfbec8f1aa65311f1bbf"
+      ]
+    },
+    {
+      "case": "include-ignored",
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/selectors.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--exact",
+          "--include-ignored",
+          "--skip",
+          "beta::",
+          "--",
+          "alpha::muted",
+          "beta::muted"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 2 tests\ntest alpha::muted ... ok\ntest beta::muted ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.02s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.027003882998542394
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--include-ignored",
+          "--skip",
+          "beta::",
+          "--filter",
+          "alpha::muted",
+          "--filter",
+          "beta::muted"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n        \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 6,\n      \"counts\": {\n        \"passed\": 2,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 219,\n      \"results\": [\n        {\n          \"name\": \"alpha::muted\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        },\n        {\n          \"name\": \"beta::muted\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"307f26e797fab158595c6a1e1af9accd\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n                \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 2,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 6,\n  \"elapsed_ms\": 219\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.79557073199976
+      },
+      "native_selection": {
+        "alpha::muted": "passed",
+        "beta::muted": "passed"
+      },
+      "sharded_selection": {
+        "alpha::muted": "passed",
+        "beta::muted": "passed"
+      },
+      "attempt_workers": [
+        "02096d09f8fcbfbec8f1aa65311f1bbf",
+        "307f26e797fab158595c6a1e1af9accd"
+      ]
+    },
+    {
+      "case": "empty-selection",
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/selectors.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--",
+          "absent",
+          "no such test"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.0062118759960867465
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--filter",
+          "absent",
+          "--filter",
+          "no such test"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-selectors@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"94f83d9b5b8a0e14e483b06a953f8d3aadf47a837996c114b14ad94ee8e2633f\",\n        \"manifest_blake3\": \"e72d78445a7d018f2a626e230ce4cd48763226c796bc5dc7688ba4d49538a83c\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 0,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 105,\n      \"results\": []\n    }\n  ],\n  \"counts\": {\n    \"passed\": 0,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 105\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.546944326000812
+      },
+      "native_selection": {},
+      "sharded_selection": {},
+      "attempt_workers": []
+    }
+  ],
+  "diagnostics": {
+    "quiet": {
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--nocapture",
+          "--exact",
+          "--",
+          "tests::quiet"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\ntest tests::quiet ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.00896568399912212
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--filter",
+          "tests::quiet"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 1,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 101,\n      \"results\": [\n        {\n          \"name\": \"tests::quiet\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 1,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 101\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.4238833160052309
+      },
+      "status": "passed",
+      "attempt_statuses": [
+        "passed"
+      ]
+    },
+    "logged_application_success": {
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--nocapture",
+          "--exact",
+          "--",
+          "tests::prints_application_result_diagnostic"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\ntest tests::prints_application_result_diagnostic ... test result: underlying parser accepted both records\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.019707642997673247
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--filter",
+          "tests::prints_application_result_diagnostic"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 1,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 98,\n      \"results\": [\n        {\n          \"name\": \"tests::prints_application_result_diagnostic\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\ntest result: underlying parser accepted both records\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 1,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 98\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.6805085570013034
+      },
+      "status": "passed",
+      "attempt_statuses": [
+        "passed"
+      ]
+    },
+    "logged_valid_summary_success": {
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--nocapture",
+          "--exact",
+          "--",
+          "tests::prints_captured_summary_from_fixture"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\ntest tests::prints_captured_summary_from_fixture ... test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\nthe previous line is an application fixture\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.017009883995342534
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--filter",
+          "tests::prints_captured_summary_from_fixture"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 1,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 141,\n      \"results\": [\n        {\n          \"name\": \"tests::prints_captured_summary_from_fixture\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\\nthe previous line is an application fixture\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 1,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 141\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.48432052999851294
+      },
+      "status": "passed",
+      "attempt_statuses": [
+        "passed"
+      ]
+    },
+    "logged_assertion_failure": {
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--nocapture",
+          "--exact",
+          "--",
+          "tests::reports_error_after_diagnostic"
+        ],
+        "exit_code": 101,
+        "stdout": "\nrunning 1 test\ntest tests::reports_error_after_diagnostic ... test result: values will be compared\nFAILED\n\nfailures:\n\nfailures:\n    tests::reports_error_after_diagnostic\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.01s\n\n",
+        "stderr": "\nthread 'tests::reports_error_after_diagnostic' (1013413) panicked at /tmp/entangle-signed-libtest-replay.klXpLSa9/diagnostics.rs:25:9:\nassertion `left == right` failed\n  left: \"left\"\n right: \"right\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+        "elapsed_seconds": 0.01740446000621887
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--filter",
+          "tests::reports_error_after_diagnostic"
+        ],
+        "exit_code": 1,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 0,\n        \"flaky\": 0,\n        \"failed\": 1,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 91,\n      \"results\": [\n        {\n          \"name\": \"tests::reports_error_after_diagnostic\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": null,\n              \"stdout\": \"\\nrunning 1 test\\ntest result: values will be compared\\n\",\n              \"stderr\": \"\\nthread 'main' (1) panicked at /tmp/entangle-signed-libtest-replay.klXpLSa9/diagnostics.rs:25:9:\\nassertion `left == right` failed\\n  left: \\\"left\\\"\\n right: \\\"right\\\"\\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\\n\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"failed\"\n            }\n          ],\n          \"status\": \"failed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 0,\n    \"flaky\": 0,\n    \"failed\": 1,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 91\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.5976510460022837
+      },
+      "status": "failed",
+      "attempt_statuses": [
+        "failed"
+      ]
+    },
+    "ordinary_result_error": {
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--nocapture",
+          "--exact",
+          "--",
+          "tests::returns_result_error"
+        ],
+        "exit_code": 101,
+        "stdout": "\nrunning 1 test\ntest tests::returns_result_error ... FAILED\n\nfailures:\n\nfailures:\n    tests::returns_result_error\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.04s\n\n",
+        "stderr": "Error: \"this is a normal Rust test Result error\"\n",
+        "elapsed_seconds": 0.04631653899559751
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--filter",
+          "tests::returns_result_error"
+        ],
+        "exit_code": 1,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 0,\n        \"flaky\": 0,\n        \"failed\": 1,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 178,\n      \"results\": [\n        {\n          \"name\": \"tests::returns_result_error\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 1,\n              \"stdout\": \"\\nrunning 1 test\\ntests::returns_result_error --- FAILED\\n\\nfailures:\\n\\nfailures:\\n    tests::returns_result_error\\n\\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"Error: \\\"this is a normal Rust test Result error\\\"\\n\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"failed\"\n            }\n          ],\n          \"status\": \"failed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 0,\n    \"flaky\": 0,\n    \"failed\": 1,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 178\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.932093844996416
+      },
+      "status": "failed",
+      "attempt_statuses": [
+        "failed"
+      ]
+    },
+    "failure_then_pass": {
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--nocapture",
+          "--exact",
+          "--",
+          "tests::checks_timeout_with_diagnostic_on_first_attempt"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\ntest tests::checks_timeout_with_diagnostic_on_first_attempt ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.01s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.019326361005369108
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--filter",
+          "tests::checks_timeout_with_diagnostic_on_first_attempt",
+          "--retries",
+          "1"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 0,\n        \"flaky\": 1,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 205,\n      \"results\": [\n        {\n          \"name\": \"tests::checks_timeout_with_diagnostic_on_first_attempt\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": null,\n              \"stdout\": \"\\nrunning 1 test\\ntest result: retry fixture timed out before the record arrived\\n\",\n              \"stderr\": \"\\nthread 'main' (1) panicked at /tmp/entangle-signed-libtest-replay.klXpLSa9/diagnostics.rs:32:13:\\nfirst worker attempt reports a real assertion failure\\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\\n\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"failed\"\n            },\n            {\n              \"attempt\": 2,\n              \"peer\": \"307f26e797fab158595c6a1e1af9accd\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"flaky\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 0,\n    \"flaky\": 1,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 205\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.518592628002807
+      },
+      "status": "flaky",
+      "attempt_statuses": [
+        "failed",
+        "passed"
+      ]
+    },
+    "inline_success": {
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--nocapture",
+          "--exact",
+          "--",
+          "tail_controls::prints_without_newline_before_success"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\ntest tail_controls::prints_without_newline_before_success ... test result: parser finished inlineok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.0229059880002751
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--filter",
+          "tail_controls::prints_without_newline_before_success"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 1,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 99,\n      \"results\": [\n        {\n          \"name\": \"tail_controls::prints_without_newline_before_success\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\ntest result: parser finished inline.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 1,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 99\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.39112698700046167
+      },
+      "status": "passed",
+      "attempt_statuses": [
+        "passed"
+      ]
+    },
+    "early_exit_after_logged_count": {
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--nocapture",
+          "--exact",
+          "--",
+          "tail_controls::exits_before_libtest_finishes"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\ntest tail_controls::exits_before_libtest_finishes ... test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s\n",
+        "stderr": "",
+        "elapsed_seconds": 0.023770715997670777
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--filter",
+          "tail_controls::exits_before_libtest_finishes"
+        ],
+        "exit_code": 1,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 0,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 1\n      },\n      \"elapsed_ms\": 114,\n      \"results\": [\n        {\n          \"name\": \"tail_controls::exits_before_libtest_finishes\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"error\",\n              \"error\": \"expected one terminal Rust libtest summary\"\n            }\n          ],\n          \"status\": \"error\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 0,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 1\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 114\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.6185931369982427
+      },
+      "status": "error",
+      "attempt_statuses": [
+        "error"
+      ]
+    },
+    "expected_panic_ignored": {
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--nocapture",
+          "--exact",
+          "--include-ignored",
+          "--",
+          "tail_controls::expected_panic_with_reason"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\ntest tail_controls::expected_panic_with_reason - should panic ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.03s\n\n",
+        "stderr": "\nthread 'tail_controls::expected_panic_with_reason' (1013773) panicked at /tmp/entangle-signed-libtest-replay.klXpLSa9/diagnostics.rs:60:9:\nexpected\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+        "elapsed_seconds": 0.04497209299734095
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--filter",
+          "tail_controls::expected_panic_with_reason",
+          "--include-ignored"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 0,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 1,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 66,\n      \"results\": [\n        {\n          \"name\": \"tail_controls::expected_panic_with_reason\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\ni\\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 8 filtered out; finished in 0.00s\\n\\ntest: tail_controls::expected_panic_with_reason, ignore_message: terminal reason can start test result:.\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"ignored\"\n            }\n          ],\n          \"status\": \"ignored\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 0,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 1,\n    \"error\": 0\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 67\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.5144310820032842
+      },
+      "status": "ignored",
+      "attempt_statuses": [
+        "ignored"
+      ]
+    },
+    "empty_legitimate_filter": {
+      "native": {
+        "command": [
+          "/tmp/ent-libtest-lcdni6us/diagnostics.native",
+          "--format",
+          "pretty",
+          "--test-threads",
+          "1",
+          "--nocapture",
+          "--exact",
+          "--",
+          "test-name-not-present"
+        ],
+        "exit_code": 0,
+        "stdout": "\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s\n\n",
+        "stderr": "",
+        "elapsed_seconds": 0.00748261199623812
+      },
+      "sharded": {
+        "command": [
+          "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "/workspace/Entanglement/scripts/run-rust-tests.py",
+          "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+          "--socket",
+          "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+          "--peer",
+          "02096d09f8fcbfbec8f1aa65311f1bbf",
+          "--peer",
+          "307f26e797fab158595c6a1e1af9accd",
+          "--exact",
+          "--filter",
+          "test-name-not-present"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 9,\n      \"counts\": {\n        \"passed\": 0,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 92,\n      \"results\": []\n    }\n  ],\n  \"counts\": {\n    \"passed\": 0,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 9,\n  \"elapsed_ms\": 92\n}\n",
+        "stderr": "",
+        "elapsed_seconds": 0.48523822399874916
+      },
+      "status": null,
+      "attempt_statuses": []
+    },
+    "second_suite_discovery_failure": {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "/workspace/Entanglement/scripts/run-rust-tests.py",
+        "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+        "a7f1974d0ffde6a3e909b9ce41daa0d0/not-loaded@0.1.0",
+        "--socket",
+        "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+        "--peer",
+        "02096d09f8fcbfbec8f1aa65311f1bbf",
+        "--peer",
+        "307f26e797fab158595c6a1e1af9accd",
+        "--exact",
+        "--filter",
+        "tests::quiet"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Rust test dispatch failed: dispatch error: placement: no live workers in pool\n",
+      "elapsed_seconds": 0.7536125219994574
+    },
+    "actual_worker_deadline": {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "/workspace/Entanglement/scripts/run-rust-tests.py",
+        "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-deadline@0.1.0",
+        "--socket",
+        "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+        "--peer",
+        "02096d09f8fcbfbec8f1aa65311f1bbf",
+        "--peer",
+        "307f26e797fab158595c6a1e1af9accd",
+        "--exact",
+        "--filter",
+        "runs_past_worker_deadline",
+        "--timeout-ms",
+        "750",
+        "--retries",
+        "1"
+      ],
+      "exit_code": 1,
+      "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-deadline@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"5c73ab660f13f1e2c1a7145e735bf4d94aab610bbcfc39c6d21c26b126bca600\",\n        \"manifest_blake3\": \"dd116c037cb89d271962b62cd5340e77ea147c830b043e6e2615a265f42fe332\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 0,\n      \"counts\": {\n        \"passed\": 0,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 1\n      },\n      \"elapsed_ms\": 2294,\n      \"results\": [\n        {\n          \"name\": \"runs_past_worker_deadline\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"status\": \"error\",\n              \"error\": \"dispatch error: ENTANGLE-E0403: peer 02096d09f8fcbfbec8f1aa65311f1bbf rejected the task (execution): host: ENTANGLE-E0504: timed out after 750ms\"\n            },\n            {\n              \"attempt\": 2,\n              \"peer\": \"307f26e797fab158595c6a1e1af9accd\",\n              \"status\": \"error\",\n              \"error\": \"dispatch error: ENTANGLE-E0403: peer 307f26e797fab158595c6a1e1af9accd rejected the task (execution): host: ENTANGLE-E0504: timed out after 750ms\"\n            }\n          ],\n          \"status\": \"error\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 0,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 1\n  },\n  \"filtered\": 0,\n  \"elapsed_ms\": 2294\n}\n",
+      "stderr": "",
+      "elapsed_seconds": 2.976357185994857
+    },
+    "worker_health_after_deadline": {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "/workspace/Entanglement/scripts/run-rust-tests.py",
+        "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+        "--socket",
+        "/tmp/ent-libtest-lcdni6us/coord/.entangle/sock",
+        "--peer",
+        "02096d09f8fcbfbec8f1aa65311f1bbf",
+        "--peer",
+        "307f26e797fab158595c6a1e1af9accd",
+        "--exact",
+        "--filter",
+        "tests::quiet"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"suites\": [\n    {\n      \"suite\": \"a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0\",\n      \"suite_identity\": {\n        \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n        \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n      },\n      \"listing_peers\": [\n        \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n        \"307f26e797fab158595c6a1e1af9accd\"\n      ],\n      \"filtered\": 8,\n      \"counts\": {\n        \"passed\": 1,\n        \"flaky\": 0,\n        \"failed\": 0,\n        \"ignored\": 0,\n        \"error\": 0\n      },\n      \"elapsed_ms\": 58,\n      \"results\": [\n        {\n          \"name\": \"tests::quiet\",\n          \"attempts\": [\n            {\n              \"attempt\": 1,\n              \"peer\": \"02096d09f8fcbfbec8f1aa65311f1bbf\",\n              \"exit_code\": 0,\n              \"stdout\": \"\\nrunning 1 test\\n.\\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s\\n\\n\",\n              \"stderr\": \"\",\n              \"suite_identity\": {\n                \"artifact_blake3\": \"53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e\",\n                \"manifest_blake3\": \"4bc1b498679c09ca7d750d805201768bffe07b3b820ac40ed040e7881921d28f\"\n              },\n              \"status\": \"passed\"\n            }\n          ],\n          \"status\": \"passed\"\n        }\n      ]\n    }\n  ],\n  \"counts\": {\n    \"passed\": 1,\n    \"flaky\": 0,\n    \"failed\": 0,\n    \"ignored\": 0,\n    \"error\": 0\n  },\n  \"filtered\": 8,\n  \"elapsed_ms\": 58\n}\n",
+      "stderr": "",
+      "elapsed_seconds": 0.28754387899971334
+    },
+    "pinned_mismatch_wire": {
+      "plugin": "a7f1974d0ffde6a3e909b9ce41daa0d0/oracle-diagnostics@0.1.0",
+      "peer": "02096d09f8fcbfbec8f1aa65311f1bbf",
+      "params": {
+        "operation": "test",
+        "name": "tests::quiet",
+        "expected_suite_identity": {
+          "artifact_blake3": "53061649da706caacb0dc4b79a4cf9e7c1bf04e1eb4292b29839b27d33cf360e",
+          "manifest_blake3": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "error_kind": "suite_identity",
+      "remote_code": "suite-identity-mismatch",
+      "error": "worker 02096d09f8fcbfbec8f1aa65311f1bbf: dispatch error: ENTANGLE-E0403: peer 02096d09f8fcbfbec8f1aa65311f1bbf rejected the task (suite-identity-mismatch): host: ENTANGLE-E0510: libtest suite identity mismatch"
+    }
+  },
+  "legacy": {
+    "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+    "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+    "release_archive": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "release_archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+    "release_manifest_sha256": "289c34b0ec24007c9e2a9fb726130a11595079d06005a151df3b4e755feca47e",
+    "release_binaries_sha256": {
+      "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+      "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+    }
+  },
+  "scope": "One Linux host, one stateless coordinator, two distinct signed worker identities over authenticated loopback QUIC. Only workers load the signed test components.",
+  "release_binaries_sha256": {
+    "entangle": "bbe332a3da4d23516930d50b3439ffa7fd2f6a0530fd14cd9329f27058baca02",
+    "entangled": "a581695b1ac2b939391501d3daef987ad188bddcd85a473ab661a7a1a31e936e"
+  },
+  "coordinator_status": {
+    "libtest_remote_codes": 1,
+    "local_peer_id": "a7f1974d0ffde6a3e909b9ce41daa0d0",
+    "local_display_name": "4195294301b2",
+    "transports_active": [
+      "iroh"
+    ],
+    "seen_peer_count": 0,
+    "trusted_peer_count": 3
+  },
+  "coordinator_loaded_plugins": {
+    "plugins": []
+  },
+  "worker_peers": [
+    "02096d09f8fcbfbec8f1aa65311f1bbf",
+    "307f26e797fab158595c6a1e1af9accd"
+  ],
+  "finished_utc": "2026-11-27T08:34:56.270020+00:00",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_commit_after": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "release_archive_sha256_after": "871f154179c2387c76a09101e6316d5e242b6f6b144fa4bc98932bb164f31132",
+  "daemon_logs_sha256": {
+    "coord.daemon.log": "663d2d19369d60ebc928ce03253268f61c2eb27ed0ceddb00192f378af8e4d48",
+    "old-coord.daemon.log": "9ba394ff3ba5c455a172dad47de9ec3780a70daf5a6a2b0329a1d242d1ec7a55",
+    "old-worker.daemon.log": "c0187accb2696124fd36a21cb6066a93de5625f16c3e383dee34621d70a430cc",
+    "worker-0.daemon.log": "165516ac713c1e1818eefaacad436a5d30db2087ec64660e105217c0af275882",
+    "worker-1.daemon.log": "6fda8692dc56a2570255b9c0ce3d0ce2ee56956bb419eb968fedb65508071a09"
+  },
+  "exit_code": 1
+}

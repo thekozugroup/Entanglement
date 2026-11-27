@@ -1,0 +1,1967 @@
+{
+  "source_commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_id": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "started_utc": "2026-11-27T08:34:21.079315+00:00",
+  "archive_sha256": "871f154179c2387c76a09101e6316d5e242b6f6b144fa4bc98932bb164f31132",
+  "candidate_elf_sha256": {
+    "entangle": "bbe332a3da4d23516930d50b3439ffa7fd2f6a0530fd14cd9329f27058baca02",
+    "entangled": "a581695b1ac2b939391501d3daef987ad188bddcd85a473ab661a7a1a31e936e"
+  },
+  "older_c19_elf_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "runner_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "driver_sha256": "22052272463ed3c180375613a593c5068ce46e1347b32a9c89a1ffe79c82a52f",
+  "fixtures": {
+    "guarded.rs": "7b7dca2aa1cf87b0edeaff8723d28457ae49b89ba2a1601b03478294130048d4",
+    "a.wasm": "ec361216fe8e1fe0619c4d9f945d2dd0088422b4606d62e20d8270ca0199f5c8",
+    "b.wasm": "28c63ba3db38b10b9fcc18924cb07f545b37f79fa0e55f5a283d19e87cf2d353"
+  },
+  "scope": "Transparent local UDS fixture; actual untouched JSON-RPC, verified archive executables, signed WIT suites, explicit private Iroh pairing. The concurrent case compares real guest wall-clock interval against ordinary worker unload acknowledgement.",
+  "signed_identities": {
+    "a": {
+      "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+      "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+    },
+    "b": {
+      "artifact_blake3": "be0ab1f1c3e9ba42a2430464a19243b12933f793bca583d13c8c762d0e1fefac",
+      "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+    },
+    "manifest": {
+      "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+      "manifest_blake3": "f4e3fc8ff1b4821d1817effb0843a9cb8046d90d51e5d97b5e2779b981bf8397"
+    }
+  },
+  "plugin_id": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+  "workers": {
+    "one": "ba936cd1de091255b958aa64bd94e467",
+    "two": "ea5bd752b8955b4b2e2b0184ce67febc",
+    "old": "efe8ff39e53495a1be97aae3393c1216"
+  },
+  "libtest_remote_codes": 1,
+  "events": [
+    {
+      "phase": "matching-control",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42125280763531,
+      "finished_ns": 42125316131896,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "matching-control",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42125319089172,
+      "finished_ns": 42125338538306,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "matching-control",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42125344349099,
+      "finished_ns": 42125353211528,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "matching-control",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42125354179886,
+      "finished_ns": 42125363231275,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "matching-control",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "test",
+        "name": "arithmetic_case",
+        "ignored": false,
+        "attempt": 1,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42125371085708,
+      "finished_ns": 42125424125777,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "\nrunning 1 test\nobserved_component=A\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+      "stderr": ""
+    },
+    {
+      "phase": "discovery-divergence-b",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42126522995865,
+      "finished_ns": 42126540654051,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "discovery-divergence-b",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42126541835198,
+      "finished_ns": 42126550120875,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "discovery-divergence-b",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42126552296290,
+      "finished_ns": 42126558450183,
+      "error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer ea5bd752b8955b4b2e2b0184ce67febc rejected the task (suite-identity-mismatch): host: ENTANGLE-E0510: libtest suite identity mismatch",
+        "data": {
+          "remote_code": "suite-identity-mismatch"
+        }
+      }
+    },
+    {
+      "phase": "discovery-divergence-manifest",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42128472500010,
+      "finished_ns": 42128483126942,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "discovery-divergence-manifest",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42128508271088,
+      "finished_ns": 42128524982967,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "discovery-divergence-manifest",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42128532190164,
+      "finished_ns": 42128547819226,
+      "error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer ea5bd752b8955b4b2e2b0184ce67febc rejected the task (suite-identity-mismatch): host: ENTANGLE-E0510: libtest suite identity mismatch",
+        "data": {
+          "remote_code": "suite-identity-mismatch"
+        }
+      }
+    },
+    {
+      "phase": "change-after-list-before-exact",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42129532663627,
+      "finished_ns": 42129536719259,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "change-after-list-before-exact",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42129538415257,
+      "finished_ns": 42129553138369,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "change-after-list-before-exact",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42129560196666,
+      "finished_ns": 42129565643169,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "change-after-list-before-exact",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42129566872948,
+      "finished_ns": 42129572799789,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "change-after-list-before-exact",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "test",
+        "name": "arithmetic_case",
+        "ignored": false,
+        "attempt": 1,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42129574509106,
+      "finished_ns": 42131024212370,
+      "error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer ba936cd1de091255b958aa64bd94e467 rejected the task (suite-identity-mismatch): host: ENTANGLE-E0510: libtest suite identity mismatch",
+        "data": {
+          "remote_code": "suite-identity-mismatch"
+        }
+      }
+    },
+    {
+      "phase": "change-after-failure-before-retry",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42132955481978,
+      "finished_ns": 42132974288165,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "change-after-failure-before-retry",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42132980673608,
+      "finished_ns": 42133017674812,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "change-after-failure-before-retry",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42133028215597,
+      "finished_ns": 42133044075600,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "change-after-failure-before-retry",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42133048222137,
+      "finished_ns": 42133077031316,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "change-after-failure-before-retry",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "test",
+        "name": "controlled_first_failure",
+        "ignored": false,
+        "attempt": 1,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42133081003087,
+      "finished_ns": 42133131794554,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": null,
+      "stdout": "\nrunning 1 test\nobserved_component=A attempt=1\n",
+      "stderr": "\nthread 'main' (1) panicked at /tmp/entangle-integrated-sharder-qa/guarded.rs:22:5:\ncontrolled first-attempt check\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+    },
+    {
+      "phase": "change-after-failure-before-retry",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "test",
+        "name": "controlled_first_failure",
+        "ignored": false,
+        "attempt": 2,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42133132633120,
+      "finished_ns": 42134256996936,
+      "error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer ea5bd752b8955b4b2e2b0184ce67febc rejected the task (suite-identity-mismatch): host: ENTANGLE-E0510: libtest suite identity mismatch",
+        "data": {
+          "remote_code": "suite-identity-mismatch"
+        }
+      }
+    },
+    {
+      "phase": "matching-retry-control",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42136248363814,
+      "finished_ns": 42136258385755,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "matching-retry-control",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42136271356943,
+      "finished_ns": 42136281689661,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "matching-retry-control",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42136282624531,
+      "finished_ns": 42136316154881,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "matching-retry-control",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42136323825966,
+      "finished_ns": 42136331191145,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "matching-retry-control",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "test",
+        "name": "controlled_first_failure",
+        "ignored": false,
+        "attempt": 1,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42136331961186,
+      "finished_ns": 42136340143119,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": null,
+      "stdout": "\nrunning 1 test\nobserved_component=A attempt=1\n",
+      "stderr": "\nthread 'main' (1) panicked at /tmp/entangle-integrated-sharder-qa/guarded.rs:22:5:\ncontrolled first-attempt check\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+    },
+    {
+      "phase": "matching-retry-control",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "test",
+        "name": "controlled_first_failure",
+        "ignored": false,
+        "attempt": 2,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42136348243353,
+      "finished_ns": 42136368135338,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "\nrunning 1 test\nobserved_component=A attempt=2\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+      "stderr": ""
+    },
+    {
+      "phase": "replace-during-admitted-guest",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42136882809202,
+      "finished_ns": 42136943780345,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "replace-during-admitted-guest",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42136955513082,
+      "finished_ns": 42137015149724,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "replace-during-admitted-guest",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42137024178453,
+      "finished_ns": 42137056134417,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "replace-during-admitted-guest",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42137072196266,
+      "finished_ns": 42137119143730,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "replace-during-admitted-guest",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "test",
+        "name": "selected_during_reload",
+        "ignored": false,
+        "attempt": 1,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42137128250186,
+      "finished_ns": 42138517755706,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "\nrunning 1 test\nobserved_component=A guest_utc_ns=1795768479113668288 1795768480465310468\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 1.35s\n\n",
+      "stderr": ""
+    },
+    {
+      "phase": "new-fingerprint-after-drain",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42140030545781,
+      "finished_ns": 42140040135338,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "be0ab1f1c3e9ba42a2430464a19243b12933f793bca583d13c8c762d0e1fefac",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "new-fingerprint-after-drain",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "be0ab1f1c3e9ba42a2430464a19243b12933f793bca583d13c8c762d0e1fefac",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42140043279112,
+      "finished_ns": 42140063045580,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "be0ab1f1c3e9ba42a2430464a19243b12933f793bca583d13c8c762d0e1fefac",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "new-fingerprint-after-drain",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "test",
+        "name": "arithmetic_case",
+        "ignored": false,
+        "attempt": 1,
+        "expected_suite_identity": {
+          "artifact_blake3": "be0ab1f1c3e9ba42a2430464a19243b12933f793bca583d13c8c762d0e1fefac",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42140064214782,
+      "finished_ns": 42140104889173,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "be0ab1f1c3e9ba42a2430464a19243b12933f793bca583d13c8c762d0e1fefac",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "\nrunning 1 test\nobserved_component=B\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+      "stderr": ""
+    },
+    {
+      "phase": "legacy-worker-upgrade-message",
+      "peer": "efe8ff39e53495a1be97aae3393c1216",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42141508621509,
+      "finished_ns": 42141528446962,
+      "chosen_peer": "efe8ff39e53495a1be97aae3393c1216",
+      "identity": null,
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "legacy-worker-following-current",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42141942836363,
+      "finished_ns": 42141957244685,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "legacy-worker-following-current",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42141957856093,
+      "finished_ns": 42141982100767,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "legacy-worker-following-current",
+      "peer": "efe8ff39e53495a1be97aae3393c1216",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42142011172248,
+      "finished_ns": 42142031964543,
+      "error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer efe8ff39e53495a1be97aae3393c1216 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid libtest request: unknown field `expected_suite_identity`, expected `ignored`",
+        "data": {
+          "remote_code": "execution"
+        }
+      }
+    },
+    {
+      "phase": "selected-after-unload",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42142742498398,
+      "finished_ns": 42142760414655,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "selected-after-unload",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42142772217102,
+      "finished_ns": 42142835332788,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "selected-after-unload",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42142845840811,
+      "finished_ns": 42142865384591,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "selected-after-unload",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42142908230068,
+      "finished_ns": 42142922507915,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "selected-after-unload",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "test",
+        "name": "arithmetic_case",
+        "ignored": false,
+        "attempt": 1,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42142925206736,
+      "finished_ns": 42142968577927,
+      "error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer ba936cd1de091255b958aa64bd94e467 rejected the task (plugin-not-loaded): plugin 51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0 is not loaded on this node",
+        "data": {
+          "remote_code": "plugin-not-loaded"
+        }
+      }
+    },
+    {
+      "phase": "selected-after-revoke",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42144978275122,
+      "finished_ns": 42145014961356,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "selected-after-revoke",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42145017482255,
+      "finished_ns": 42145033832787,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "selected-after-revoke",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42145040183929,
+      "finished_ns": 42145050274294,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "selected-after-revoke",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42145051512512,
+      "finished_ns": 42145059450428,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "selected-after-revoke",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "test",
+        "name": "arithmetic_case",
+        "ignored": false,
+        "attempt": 1,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42145071759241,
+      "finished_ns": 42145121449709,
+      "error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer ba936cd1de091255b958aa64bd94e467 rejected the task (not-authorized): peer is not in this node's trusted peer allowlist",
+        "data": {
+          "remote_code": "not-authorized"
+        }
+      }
+    },
+    {
+      "phase": "loaded-suite-after-key-removal",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42145556194823,
+      "finished_ns": 42145562564451,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "loaded-suite-after-key-removal",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42145568212063,
+      "finished_ns": 42145577043224,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "loaded-suite-after-key-removal",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "test",
+        "name": "arithmetic_case",
+        "ignored": false,
+        "attempt": 1,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42145616182012,
+      "finished_ns": 42145649318626,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "\nrunning 1 test\nobserved_component=A\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+      "stderr": ""
+    },
+    {
+      "phase": "fresh-after-trust-restored",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list"
+      },
+      "started_ns": 42147969888252,
+      "finished_ns": 42148020176442,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "fresh-after-trust-restored",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42148032329341,
+      "finished_ns": 42148046888063,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "fresh-after-trust-restored",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42148064199277,
+      "finished_ns": 42148118810186,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "arithmetic_case: test\ncontrolled_first_failure: test\nselected_during_reload: test\n",
+      "stderr": ""
+    },
+    {
+      "phase": "fresh-after-trust-restored",
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "operation": {
+        "operation": "list",
+        "ignored": true,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42148122100489,
+      "finished_ns": 42148143745135,
+      "chosen_peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "phase": "fresh-after-trust-restored",
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "operation": {
+        "operation": "test",
+        "name": "arithmetic_case",
+        "ignored": false,
+        "attempt": 1,
+        "expected_suite_identity": {
+          "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+          "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+        }
+      },
+      "started_ns": 42148148731182,
+      "finished_ns": 42148164152863,
+      "chosen_peer": "ba936cd1de091255b958aa64bd94e467",
+      "identity": {
+        "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+        "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+      },
+      "exit_code": 0,
+      "stdout": "\nrunning 1 test\nobserved_component=A\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+      "stderr": ""
+    }
+  ],
+  "phases": {
+    "matching-control": {
+      "exit_code": 0,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+            "suite_identity": {
+              "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+              "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+            },
+            "listing_peers": [
+              "ba936cd1de091255b958aa64bd94e467",
+              "ea5bd752b8955b4b2e2b0184ce67febc"
+            ],
+            "filtered": 2,
+            "counts": {
+              "passed": 1,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 0
+            },
+            "elapsed_ms": 158,
+            "results": [
+              {
+                "name": "arithmetic_case",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "ba936cd1de091255b958aa64bd94e467",
+                    "exit_code": 0,
+                    "stdout": "\nrunning 1 test\nobserved_component=A\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+                    "stderr": "",
+                    "suite_identity": {
+                      "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+                      "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+                    },
+                    "status": "passed"
+                  }
+                ],
+                "status": "passed"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 1,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 0
+        },
+        "filtered": 2,
+        "elapsed_ms": 158
+      },
+      "requests": 5
+    },
+    "discovery-divergence-b": {
+      "exit_code": 1,
+      "stderr": "Rust test dispatch failed: worker ea5bd752b8955b4b2e2b0184ce67febc: dispatch error: ENTANGLE-E0403: peer ea5bd752b8955b4b2e2b0184ce67febc rejected the task (suite-identity-mismatch): host: ENTANGLE-E0510: libtest suite identity mismatch\n",
+      "report": null,
+      "requests": 3
+    },
+    "discovery-divergence-manifest": {
+      "exit_code": 1,
+      "stderr": "Rust test dispatch failed: worker ea5bd752b8955b4b2e2b0184ce67febc: dispatch error: ENTANGLE-E0403: peer ea5bd752b8955b4b2e2b0184ce67febc rejected the task (suite-identity-mismatch): host: ENTANGLE-E0510: libtest suite identity mismatch\n",
+      "report": null,
+      "requests": 3
+    },
+    "change-after-list-before-exact": {
+      "exit_code": 1,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+            "suite_identity": {
+              "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+              "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+            },
+            "listing_peers": [
+              "ba936cd1de091255b958aa64bd94e467",
+              "ea5bd752b8955b4b2e2b0184ce67febc"
+            ],
+            "filtered": 2,
+            "counts": {
+              "passed": 0,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 1
+            },
+            "elapsed_ms": 1497,
+            "results": [
+              {
+                "name": "arithmetic_case",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "ba936cd1de091255b958aa64bd94e467",
+                    "status": "error",
+                    "error_kind": "suite_identity",
+                    "error": "worker ba936cd1de091255b958aa64bd94e467: dispatch error: ENTANGLE-E0403: peer ba936cd1de091255b958aa64bd94e467 rejected the task (suite-identity-mismatch): host: ENTANGLE-E0510: libtest suite identity mismatch",
+                    "remote_code": "suite-identity-mismatch"
+                  }
+                ],
+                "status": "error"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 0,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 1
+        },
+        "filtered": 2,
+        "elapsed_ms": 1497
+      },
+      "requests": 5
+    },
+    "change-after-failure-before-retry": {
+      "exit_code": 1,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+            "suite_identity": {
+              "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+              "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+            },
+            "listing_peers": [
+              "ba936cd1de091255b958aa64bd94e467",
+              "ea5bd752b8955b4b2e2b0184ce67febc"
+            ],
+            "filtered": 2,
+            "counts": {
+              "passed": 0,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 1
+            },
+            "elapsed_ms": 1305,
+            "results": [
+              {
+                "name": "controlled_first_failure",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "ba936cd1de091255b958aa64bd94e467",
+                    "exit_code": null,
+                    "stdout": "\nrunning 1 test\nobserved_component=A attempt=1\n",
+                    "stderr": "\nthread 'main' (1) panicked at /tmp/entangle-integrated-sharder-qa/guarded.rs:22:5:\ncontrolled first-attempt check\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+                    "suite_identity": {
+                      "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+                      "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+                    },
+                    "status": "failed"
+                  },
+                  {
+                    "attempt": 2,
+                    "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+                    "status": "error",
+                    "error_kind": "suite_identity",
+                    "error": "worker ea5bd752b8955b4b2e2b0184ce67febc: dispatch error: ENTANGLE-E0403: peer ea5bd752b8955b4b2e2b0184ce67febc rejected the task (suite-identity-mismatch): host: ENTANGLE-E0510: libtest suite identity mismatch",
+                    "remote_code": "suite-identity-mismatch"
+                  }
+                ],
+                "status": "error"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 0,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 1
+        },
+        "filtered": 2,
+        "elapsed_ms": 1305
+      },
+      "requests": 6
+    },
+    "matching-retry-control": {
+      "exit_code": 0,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+            "suite_identity": {
+              "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+              "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+            },
+            "listing_peers": [
+              "ba936cd1de091255b958aa64bd94e467",
+              "ea5bd752b8955b4b2e2b0184ce67febc"
+            ],
+            "filtered": 2,
+            "counts": {
+              "passed": 0,
+              "flaky": 1,
+              "failed": 0,
+              "ignored": 0,
+              "error": 0
+            },
+            "elapsed_ms": 125,
+            "results": [
+              {
+                "name": "controlled_first_failure",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "ba936cd1de091255b958aa64bd94e467",
+                    "exit_code": null,
+                    "stdout": "\nrunning 1 test\nobserved_component=A attempt=1\n",
+                    "stderr": "\nthread 'main' (1) panicked at /tmp/entangle-integrated-sharder-qa/guarded.rs:22:5:\ncontrolled first-attempt check\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+                    "suite_identity": {
+                      "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+                      "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+                    },
+                    "status": "failed"
+                  },
+                  {
+                    "attempt": 2,
+                    "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+                    "exit_code": 0,
+                    "stdout": "\nrunning 1 test\nobserved_component=A attempt=2\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+                    "stderr": "",
+                    "suite_identity": {
+                      "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+                      "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+                    },
+                    "status": "passed"
+                  }
+                ],
+                "status": "flaky"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 0,
+          "flaky": 1,
+          "failed": 0,
+          "ignored": 0,
+          "error": 0
+        },
+        "filtered": 2,
+        "elapsed_ms": 125
+      },
+      "requests": 6
+    },
+    "replace-during-admitted-guest": {
+      "exit_code": 0,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+            "suite_identity": {
+              "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+              "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+            },
+            "listing_peers": [
+              "ba936cd1de091255b958aa64bd94e467",
+              "ea5bd752b8955b4b2e2b0184ce67febc"
+            ],
+            "filtered": 2,
+            "counts": {
+              "passed": 1,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 0
+            },
+            "elapsed_ms": 1639,
+            "results": [
+              {
+                "name": "selected_during_reload",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "ba936cd1de091255b958aa64bd94e467",
+                    "exit_code": 0,
+                    "stdout": "\nrunning 1 test\nobserved_component=A guest_utc_ns=1795768479113668288 1795768480465310468\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 1.35s\n\n",
+                    "stderr": "",
+                    "suite_identity": {
+                      "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+                      "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+                    },
+                    "status": "passed"
+                  }
+                ],
+                "status": "passed"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 1,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 0
+        },
+        "filtered": 2,
+        "elapsed_ms": 1639
+      },
+      "requests": 5
+    },
+    "new-fingerprint-after-drain": {
+      "exit_code": 0,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+            "suite_identity": {
+              "artifact_blake3": "be0ab1f1c3e9ba42a2430464a19243b12933f793bca583d13c8c762d0e1fefac",
+              "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+            },
+            "listing_peers": [
+              "ba936cd1de091255b958aa64bd94e467"
+            ],
+            "filtered": 2,
+            "counts": {
+              "passed": 1,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 0
+            },
+            "elapsed_ms": 79,
+            "results": [
+              {
+                "name": "arithmetic_case",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "ba936cd1de091255b958aa64bd94e467",
+                    "exit_code": 0,
+                    "stdout": "\nrunning 1 test\nobserved_component=B\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+                    "stderr": "",
+                    "suite_identity": {
+                      "artifact_blake3": "be0ab1f1c3e9ba42a2430464a19243b12933f793bca583d13c8c762d0e1fefac",
+                      "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+                    },
+                    "status": "passed"
+                  }
+                ],
+                "status": "passed"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 1,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 0
+        },
+        "filtered": 2,
+        "elapsed_ms": 80
+      },
+      "requests": 3
+    },
+    "legacy-worker-upgrade-message": {
+      "exit_code": 1,
+      "stderr": "Rust test dispatch failed: worker efe8ff39e53495a1be97aae3393c1216 does not report signed libtest suite identity; upgrade the worker daemon\n",
+      "report": null,
+      "requests": 1
+    },
+    "legacy-worker-following-current": {
+      "exit_code": 1,
+      "stderr": "Rust test dispatch failed: pinned listing failed on worker efe8ff39e53495a1be97aae3393c1216: dispatch error: ENTANGLE-E0403: peer efe8ff39e53495a1be97aae3393c1216 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid libtest request: unknown field `expected_suite_identity`, expected `ignored`. Verify the worker daemon supports signed libtest suite pinning.\n",
+      "report": null,
+      "requests": 3
+    },
+    "selected-after-unload": {
+      "exit_code": 1,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+            "suite_identity": {
+              "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+              "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+            },
+            "listing_peers": [
+              "ba936cd1de091255b958aa64bd94e467",
+              "ea5bd752b8955b4b2e2b0184ce67febc"
+            ],
+            "filtered": 2,
+            "counts": {
+              "passed": 0,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 1
+            },
+            "elapsed_ms": 232,
+            "results": [
+              {
+                "name": "arithmetic_case",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "ba936cd1de091255b958aa64bd94e467",
+                    "status": "error",
+                    "error_kind": "remote_rejected",
+                    "error": "worker ba936cd1de091255b958aa64bd94e467: dispatch error: ENTANGLE-E0403: peer ba936cd1de091255b958aa64bd94e467 rejected the task (plugin-not-loaded): plugin 51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0 is not loaded on this node",
+                    "remote_code": "plugin-not-loaded"
+                  }
+                ],
+                "status": "error"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 0,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 1
+        },
+        "filtered": 2,
+        "elapsed_ms": 232
+      },
+      "requests": 5
+    },
+    "selected-after-revoke": {
+      "exit_code": 1,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+            "suite_identity": {
+              "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+              "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+            },
+            "listing_peers": [
+              "ba936cd1de091255b958aa64bd94e467",
+              "ea5bd752b8955b4b2e2b0184ce67febc"
+            ],
+            "filtered": 2,
+            "counts": {
+              "passed": 0,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 1
+            },
+            "elapsed_ms": 150,
+            "results": [
+              {
+                "name": "arithmetic_case",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "ba936cd1de091255b958aa64bd94e467",
+                    "status": "error",
+                    "error_kind": "remote_rejected",
+                    "error": "worker ba936cd1de091255b958aa64bd94e467: dispatch error: ENTANGLE-E0403: peer ba936cd1de091255b958aa64bd94e467 rejected the task (not-authorized): peer is not in this node's trusted peer allowlist",
+                    "remote_code": "not-authorized"
+                  }
+                ],
+                "status": "error"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 0,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 1
+        },
+        "filtered": 2,
+        "elapsed_ms": 150
+      },
+      "requests": 5
+    },
+    "loaded-suite-after-key-removal": {
+      "exit_code": 0,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+            "suite_identity": {
+              "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+              "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+            },
+            "listing_peers": [
+              "ba936cd1de091255b958aa64bd94e467"
+            ],
+            "filtered": 2,
+            "counts": {
+              "passed": 1,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 0
+            },
+            "elapsed_ms": 105,
+            "results": [
+              {
+                "name": "arithmetic_case",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "ba936cd1de091255b958aa64bd94e467",
+                    "exit_code": 0,
+                    "stdout": "\nrunning 1 test\nobserved_component=A\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+                    "stderr": "",
+                    "suite_identity": {
+                      "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+                      "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+                    },
+                    "status": "passed"
+                  }
+                ],
+                "status": "passed"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 1,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 0
+        },
+        "filtered": 2,
+        "elapsed_ms": 105
+      },
+      "requests": 3
+    },
+    "fresh-after-trust-restored": {
+      "exit_code": 0,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "51b57443dc0446ab4b2651772650f3ca/observed-suite@0.1.0",
+            "suite_identity": {
+              "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+              "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+            },
+            "listing_peers": [
+              "ba936cd1de091255b958aa64bd94e467",
+              "ea5bd752b8955b4b2e2b0184ce67febc"
+            ],
+            "filtered": 2,
+            "counts": {
+              "passed": 1,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 0
+            },
+            "elapsed_ms": 205,
+            "results": [
+              {
+                "name": "arithmetic_case",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "ba936cd1de091255b958aa64bd94e467",
+                    "exit_code": 0,
+                    "stdout": "\nrunning 1 test\nobserved_component=A\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+                    "stderr": "",
+                    "suite_identity": {
+                      "artifact_blake3": "7a5a9c665455dee32898f11f9e3f0d18e867beb7821865488686aab6ecd0ac36",
+                      "manifest_blake3": "6e0c8bad8b92f4ad9099672132bd34d25785049847b58f2ef04f99df484a920c"
+                    },
+                    "status": "passed"
+                  }
+                ],
+                "status": "passed"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 1,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 0
+        },
+        "filtered": 2,
+        "elapsed_ms": 205
+      },
+      "requests": 5
+    }
+  },
+  "operator_actions": [
+    {
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "new": "b",
+      "unload_begin_utc_ns": 1795768467467932928,
+      "unload_ack_utc_ns": 1795768467487548633,
+      "load_ack_utc_ns": 1795768468282962700
+    },
+    {
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "new": "a",
+      "unload_begin_utc_ns": 1795768468530736115,
+      "unload_ack_utc_ns": 1795768468563319147,
+      "load_ack_utc_ns": 1795768469596981857
+    },
+    {
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "new": "manifest",
+      "unload_begin_utc_ns": 1795768469597014934,
+      "unload_ack_utc_ns": 1795768469605935214,
+      "load_ack_utc_ns": 1795768470272234186
+    },
+    {
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "new": "a",
+      "unload_begin_utc_ns": 1795768470522672629,
+      "unload_ack_utc_ns": 1795768470531337606,
+      "load_ack_utc_ns": 1795768471318987380
+    },
+    {
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "new": "b",
+      "unload_begin_utc_ns": 1795768471523501532,
+      "unload_ack_utc_ns": 1795768471563685367,
+      "load_ack_utc_ns": 1795768472959957403
+    },
+    {
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "new": "a",
+      "unload_begin_utc_ns": 1795768473030680212,
+      "unload_ack_utc_ns": 1795768473069711738,
+      "load_ack_utc_ns": 1795768474297280957
+    },
+    {
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "new": "b",
+      "unload_begin_utc_ns": 1795768475081626237,
+      "unload_ack_utc_ns": 1795768475098660101,
+      "load_ack_utc_ns": 1795768476164776854
+    },
+    {
+      "peer": "ea5bd752b8955b4b2e2b0184ce67febc",
+      "new": "a",
+      "unload_begin_utc_ns": 1795768476273373893,
+      "unload_ack_utc_ns": 1795768476321577270,
+      "load_ack_utc_ns": 1795768477653981890
+    },
+    {
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "new": "b",
+      "unload_begin_utc_ns": 1795768480029132559,
+      "unload_ack_utc_ns": 1795768480476378255,
+      "load_ack_utc_ns": 1795768481725213917
+    },
+    {
+      "peer": "ba936cd1de091255b958aa64bd94e467",
+      "new": "a",
+      "unload_begin_utc_ns": 1795768482080496906,
+      "unload_ack_utc_ns": 1795768482109223088,
+      "load_ack_utc_ns": 1795768483083196217
+    }
+  ],
+  "race": {
+    "guest_interval_ns": [
+      1795768479113668288,
+      1795768480465310468
+    ],
+    "peer": "ba936cd1de091255b958aa64bd94e467",
+    "new": "b",
+    "unload_begin_utc_ns": 1795768480029132559,
+    "unload_ack_utc_ns": 1795768480476378255,
+    "load_ack_utc_ns": 1795768481725213917
+  },
+  "stale_after_drain": {
+    "code": -32000,
+    "message": "dispatch error: ENTANGLE-E0403: peer ba936cd1de091255b958aa64bd94e467 rejected the task (suite-identity-mismatch): host: ENTANGLE-E0510: libtest suite identity mismatch",
+    "data": {
+      "remote_code": "suite-identity-mismatch"
+    }
+  },
+  "legacy_coordinator": {
+    "exit_code": 1,
+    "stderr": "Rust test dispatch failed: coordinator does not support signed libtest dispatch error codes version 1; upgrade the coordinator daemon\n",
+    "stdout": "",
+    "libtest_remote_codes": null
+  },
+  "retired_publisher_rejected_reload": "ENTANGLE-E0101",
+  "exit_code": 0,
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "finished_utc": "2026-11-27T08:34:52.369499+00:00"
+}

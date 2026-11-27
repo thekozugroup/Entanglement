@@ -1,0 +1,699 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites tests="198" failures="0" errors="0" skipped="0" time="7.122">
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" tests="97" failures="0" errors="0" skipped="0" time="4.749">
+    <properties>
+      <property name="artifact_blake3" value="a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd" />
+      <property name="manifest_blake3" value="5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="common::tests::zero_seed_fallback_matches_splitmix">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="f2x::tests::jump_poly_ce_c_and_e_combined">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.01s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="f2x::tests::jump_poly_ce_consistency_under_current_build">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.01s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="f2x::tests::jump_poly_ce_matches_repeated_mul_x_for_e0">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.03s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="f2x::tests::jump_poly_ce_matches_repeated_mul_x_for_powers_of_two">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.05s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="f2x::tests::jump_poly_n_matches_ce_multi_word">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.15s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="f2x::tests::jump_poly_n_matches_ce_single_word">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.05s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="f2x::tests::x_pow_zero_is_one">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="splitmix64::tests::next_u32">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="splitmix64::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="splitmix64::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plus::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plus::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.06s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plus::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.05s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plus::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plus::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plus::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plusplus::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.01s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plusplus::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.03s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plusplus::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.09s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plusplus::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plusplus::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128plusplus::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128starstar::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.01s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128starstar::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.08s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128starstar::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.18s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128starstar::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128starstar::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro128starstar::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro64star::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro64star::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro64star::tests::zero_seed">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro64star::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro64starstar::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro64starstar::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro64starstar::tests::zero_seed">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoroshiro64starstar::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plus::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.04s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plus::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.04s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plus::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.10s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plus::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plus::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plus::tests::test_jump">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plus::tests::test_long_jump">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plus::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plusplus::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.03s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plusplus::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.05s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plusplus::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.12s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plusplus::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plusplus::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plusplus::tests::test_jump">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plusplus::tests::test_long_jump">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128plusplus::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128starstar::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.01s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128starstar::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.07s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128starstar::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.06s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128starstar::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128starstar::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128starstar::tests::test_jump">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128starstar::tests::test_long_jump">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro128starstar::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plus::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.08s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plus::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.09s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plus::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.28s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plus::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plus::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plus::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plusplus::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.06s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plusplus::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.20s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plusplus::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.25s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plusplus::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plusplus::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256plusplus::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256starstar::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.05s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256starstar::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.05s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256starstar::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.11s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256starstar::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256starstar::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro256starstar::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plus::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.49s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plus::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.09s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plus::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.45s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plus::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plus::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plus::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plusplus::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.48s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plusplus::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.07s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plusplus::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 1.08s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plusplus::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plusplus::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512plusplus::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512starstar::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.60s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512starstar::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.11s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512starstar::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 1.07s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512starstar::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512starstar::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-128ea19a6be29c1bb88ac90f@0.1.0" name="xoshiro512starstar::tests::zero_seed_maps_to_seed_from_u64_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"a2ade51a116d2102f31519f7c75b17ea7e9a932a32db9ffc3b71b48147f6f5fd","manifest_blake3":"5c8a4980becdf59b633b6f698b7249276644967dd2e3cc572bccb5e1f36235ff"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-1fe10ae04b1059e5a4ce789c@0.1.0" tests="2" failures="0" errors="0" skipped="0" time="0.070">
+    <properties>
+      <property name="artifact_blake3" value="9784573fe0e033c354bfdcbdd6ef90b6f7350c59d65c21dacfe619f006213f06" />
+      <property name="manifest_blake3" value="4d688bc472bb967b668f8d6b5825da1c8e9e72441f5db75a844762f570160161" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-1fe10ae04b1059e5a4ce789c@0.1.0" name="test_jitter_bad_timer">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"9784573fe0e033c354bfdcbdd6ef90b6f7350c59d65c21dacfe619f006213f06","manifest_blake3":"4d688bc472bb967b668f8d6b5825da1c8e9e72441f5db75a844762f570160161"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-1fe10ae04b1059e5a4ce789c@0.1.0" name="test_jitter_closure">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"9784573fe0e033c354bfdcbdd6ef90b6f7350c59d65c21dacfe619f006213f06","manifest_blake3":"4d688bc472bb967b668f8d6b5825da1c8e9e72441f5db75a844762f570160161"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-2437c492fb405afd84db238f@0.1.0" tests="4" failures="0" errors="0" skipped="0" time="0.127">
+    <properties>
+      <property name="artifact_blake3" value="eb8c78ea620b19292fec800f863373726f3507beeb9c8621b6af80ef7ac18dd4" />
+      <property name="manifest_blake3" value="93291fec5a92155f426d5df899634d05789f6d729dcd3548d77281654cbc92f5" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-2437c492fb405afd84db238f@0.1.0" name="sfc32::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"eb8c78ea620b19292fec800f863373726f3507beeb9c8621b6af80ef7ac18dd4","manifest_blake3":"93291fec5a92155f426d5df899634d05789f6d729dcd3548d77281654cbc92f5"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-2437c492fb405afd84db238f@0.1.0" name="sfc32::tests::u64_seed">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"eb8c78ea620b19292fec800f863373726f3507beeb9c8621b6af80ef7ac18dd4","manifest_blake3":"93291fec5a92155f426d5df899634d05789f6d729dcd3548d77281654cbc92f5"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-2437c492fb405afd84db238f@0.1.0" name="sfc64::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"eb8c78ea620b19292fec800f863373726f3507beeb9c8621b6af80ef7ac18dd4","manifest_blake3":"93291fec5a92155f426d5df899634d05789f6d729dcd3548d77281654cbc92f5"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-2437c492fb405afd84db238f@0.1.0" name="sfc64::tests::u64_seed">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.01s\n\n","stderr":"","suite_identity":{"artifact_blake3":"eb8c78ea620b19292fec800f863373726f3507beeb9c8621b6af80ef7ac18dd4","manifest_blake3":"93291fec5a92155f426d5df899634d05789f6d729dcd3548d77281654cbc92f5"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" tests="13" failures="0" errors="0" skipped="0" time="0.197">
+    <properties>
+      <property name="artifact_blake3" value="54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8" />
+      <property name="manifest_blake3" value="1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac64::test::test_isaac64_clone">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac64::test::test_isaac64_construction">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac64::test::test_isaac64_new_uninitialized">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac64::test::test_isaac64_true_bytes">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac64::test::test_isaac64_true_values_32">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac64::test::test_isaac64_true_values_64">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac64::test::test_isaac64_true_values_mixed">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac::test::test_isaac_clone">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac::test::test_isaac_construction">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac::test::test_isaac_new_uninitialized">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac::test::test_isaac_true_bytes">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac::test::test_isaac_true_values_32">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-24fe100a933021c11eb6f2ab@0.1.0" name="isaac::test::test_isaac_true_values_64">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"54e21831428b09880c069a6fbad29275c063656131781622be43fdfd17d40df8","manifest_blake3":"1c627f0930c2313d90ce5c1f747c85e7fdf14ce45a7115cb8e8242a2fe6e34b8"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-29b3dde09b5c6f32ad352566@0.1.0" tests="5" failures="0" errors="0" skipped="0" time="0.076">
+    <properties>
+      <property name="artifact_blake3" value="fa9982d60daabe11c38d53981209702b4eb793f7779fae3f1ffd74f53468a8cc" />
+      <property name="manifest_blake3" value="59e13077bd2b9207978b0a68877b304060d8cd927383e4f93777894d1bcca605" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-29b3dde09b5c6f32ad352566@0.1.0" name="test_mcg128xsl64_advancing">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"fa9982d60daabe11c38d53981209702b4eb793f7779fae3f1ffd74f53468a8cc","manifest_blake3":"59e13077bd2b9207978b0a68877b304060d8cd927383e4f93777894d1bcca605"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-29b3dde09b5c6f32ad352566@0.1.0" name="test_mcg128xsl64_construction">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"fa9982d60daabe11c38d53981209702b4eb793f7779fae3f1ffd74f53468a8cc","manifest_blake3":"59e13077bd2b9207978b0a68877b304060d8cd927383e4f93777894d1bcca605"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-29b3dde09b5c6f32ad352566@0.1.0" name="test_mcg128xsl64_reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"fa9982d60daabe11c38d53981209702b4eb793f7779fae3f1ffd74f53468a8cc","manifest_blake3":"59e13077bd2b9207978b0a68877b304060d8cd927383e4f93777894d1bcca605"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-29b3dde09b5c6f32ad352566@0.1.0" name="test_mcg128xsl64_restore">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"fa9982d60daabe11c38d53981209702b4eb793f7779fae3f1ffd74f53468a8cc","manifest_blake3":"59e13077bd2b9207978b0a68877b304060d8cd927383e4f93777894d1bcca605"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-29b3dde09b5c6f32ad352566@0.1.0" name="test_mcg128xsl64_state_odd">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"fa9982d60daabe11c38d53981209702b4eb793f7779fae3f1ffd74f53468a8cc","manifest_blake3":"59e13077bd2b9207978b0a68877b304060d8cd927383e4f93777894d1bcca605"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" tests="43" failures="0" errors="0" skipped="0" time="1.190">
+    <properties>
+      <property name="artifact_blake3" value="93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682" />
+      <property name="manifest_blake3" value="a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mp::tests::add_mod_overflow">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mp::tests::pow_mod_fermat">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.08s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mp::tests::small_values_match_u128">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x32::tests::from_rng_maps_carry">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x32::tests::invalid_seeds">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x32::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.05s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x32::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.07s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x32::tests::jump_constants">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.05s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x32::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.16s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x32::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x32::tests::reference_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.08s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x32::tests::reference_seed_from_u64">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x32::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x::tests::from_rng_maps_carry">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x::tests::invalid_seeds">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.05s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.10s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x::tests::jump_constants">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.03s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.09s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x::tests::reference_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.10s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x::tests::reference_seed_from_u64">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc128x::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc192x::tests::from_rng_maps_carry">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc192x::tests::invalid_seeds">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc192x::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.09s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc192x::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.13s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc192x::tests::jump_constants">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.09s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc192x::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.22s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc192x::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc192x::tests::reference_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.10s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc192x::tests::reference_seed_from_u64">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc192x::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc64x32::tests::from_rng_maps_carry">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc64x32::tests::invalid_seeds">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc64x32::tests::jump_ce_matches_predefined_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc64x32::tests::jump_ce_small_distances_match_stepping">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.03s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc64x32::tests::jump_constants">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc64x32::tests::jump_n_matches_jump_ce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc64x32::tests::reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc64x32::tests::reference_jumps">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc64x32::tests::reference_seed_from_u64">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-3bb015996df7a0907c3128b4@0.1.0" name="mwc64x32::tests::state_roundtrip">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"93d8b470e268d9d7fbed94a83cc0f97feb9d5fa029a894852c526761bb910682","manifest_blake3":"a4180b00e54cb70f5223b5c234fed6b9bd8700f316026285fa9897279c39540d"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-4a053eb3e83fcbba028cd5a6@0.1.0" tests="4" failures="0" errors="0" skipped="0" time="0.084">
+    <properties>
+      <property name="artifact_blake3" value="f83dac24e21d4adde43089c151cbd5fec05b981925952e97e2ddfad1c6f424ad" />
+      <property name="manifest_blake3" value="1e77b27b3b2b452f8d352b25271d67d1fada232bd04f82bd526be161c01920b2" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-4a053eb3e83fcbba028cd5a6@0.1.0" name="test_xorshift_clone">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"f83dac24e21d4adde43089c151cbd5fec05b981925952e97e2ddfad1c6f424ad","manifest_blake3":"1e77b27b3b2b452f8d352b25271d67d1fada232bd04f82bd526be161c01920b2"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-4a053eb3e83fcbba028cd5a6@0.1.0" name="test_xorshift_construction">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"f83dac24e21d4adde43089c151cbd5fec05b981925952e97e2ddfad1c6f424ad","manifest_blake3":"1e77b27b3b2b452f8d352b25271d67d1fada232bd04f82bd526be161c01920b2"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-4a053eb3e83fcbba028cd5a6@0.1.0" name="test_xorshift_true_values">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"f83dac24e21d4adde43089c151cbd5fec05b981925952e97e2ddfad1c6f424ad","manifest_blake3":"1e77b27b3b2b452f8d352b25271d67d1fada232bd04f82bd526be161c01920b2"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-4a053eb3e83fcbba028cd5a6@0.1.0" name="test_xorshift_zero_seed">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"f83dac24e21d4adde43089c151cbd5fec05b981925952e97e2ddfad1c6f424ad","manifest_blake3":"1e77b27b3b2b452f8d352b25271d67d1fada232bd04f82bd526be161c01920b2"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-5f6fb7a2c44fdf4aa7e289ef@0.1.0" tests="4" failures="0" errors="0" skipped="0" time="0.057">
+    <properties>
+      <property name="artifact_blake3" value="4065acfe709ce01a5a16660cf30492aaff1ea399b7dab15146fa1e49afa76313" />
+      <property name="manifest_blake3" value="65401219629da8552b69958295f590bedbec1ef60052fe03b906da26d7a1c81b" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-5f6fb7a2c44fdf4aa7e289ef@0.1.0" name="test_lcg64xsh32_advancing">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"4065acfe709ce01a5a16660cf30492aaff1ea399b7dab15146fa1e49afa76313","manifest_blake3":"65401219629da8552b69958295f590bedbec1ef60052fe03b906da26d7a1c81b"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-5f6fb7a2c44fdf4aa7e289ef@0.1.0" name="test_lcg64xsh32_advancing_restore">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"4065acfe709ce01a5a16660cf30492aaff1ea399b7dab15146fa1e49afa76313","manifest_blake3":"65401219629da8552b69958295f590bedbec1ef60052fe03b906da26d7a1c81b"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-5f6fb7a2c44fdf4aa7e289ef@0.1.0" name="test_lcg64xsh32_construction">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"4065acfe709ce01a5a16660cf30492aaff1ea399b7dab15146fa1e49afa76313","manifest_blake3":"65401219629da8552b69958295f590bedbec1ef60052fe03b906da26d7a1c81b"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-5f6fb7a2c44fdf4aa7e289ef@0.1.0" name="test_lcg64xsh32_reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"4065acfe709ce01a5a16660cf30492aaff1ea399b7dab15146fa1e49afa76313","manifest_blake3":"65401219629da8552b69958295f590bedbec1ef60052fe03b906da26d7a1c81b"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-81bf39493345f699ee8780c3@0.1.0" tests="0" failures="0" errors="0" skipped="0" time="0.054">
+    <properties>
+      <property name="artifact_blake3" value="988ec5401f7030d19c4fd9931d064e0ef52a97192f83e045070ccabc3a36bdb2" />
+      <property name="manifest_blake3" value="52e8d657bd0f3616f9cb61e0304e961b92b4160ceb6f3551434656703df9fefe" />
+    </properties>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-8e318003776dd9651f71e537@0.1.0" tests="4" failures="0" errors="0" skipped="0" time="0.055">
+    <properties>
+      <property name="artifact_blake3" value="1471ce006920e5e8f2d8a47cb2ee4313874b86712fcdf2e7a8d435a591d7857f" />
+      <property name="manifest_blake3" value="118948367bc73afbca1501c139619bede6eb5b9e73e651382a8d114558473cfb" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-8e318003776dd9651f71e537@0.1.0" name="test_lcg128cmdxsm64_advancing">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"1471ce006920e5e8f2d8a47cb2ee4313874b86712fcdf2e7a8d435a591d7857f","manifest_blake3":"118948367bc73afbca1501c139619bede6eb5b9e73e651382a8d114558473cfb"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-8e318003776dd9651f71e537@0.1.0" name="test_lcg128cmdxsm64_advancing_restore">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"1471ce006920e5e8f2d8a47cb2ee4313874b86712fcdf2e7a8d435a591d7857f","manifest_blake3":"118948367bc73afbca1501c139619bede6eb5b9e73e651382a8d114558473cfb"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-8e318003776dd9651f71e537@0.1.0" name="test_lcg128cmdxsm64_construction">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"1471ce006920e5e8f2d8a47cb2ee4313874b86712fcdf2e7a8d435a591d7857f","manifest_blake3":"118948367bc73afbca1501c139619bede6eb5b9e73e651382a8d114558473cfb"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-8e318003776dd9651f71e537@0.1.0" name="test_lcg128cmdxsm64_reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"1471ce006920e5e8f2d8a47cb2ee4313874b86712fcdf2e7a8d435a591d7857f","manifest_blake3":"118948367bc73afbca1501c139619bede6eb5b9e73e651382a8d114558473cfb"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-9ff2a611dfcb487496b827cf@0.1.0" tests="4" failures="0" errors="0" skipped="0" time="0.065">
+    <properties>
+      <property name="artifact_blake3" value="138dda9e95d11e152b7320f037c696ba08d730b68cdcf2dd50d27228c8bccf43" />
+      <property name="manifest_blake3" value="978563c501c3e9eb047133db868d2027a359417fd391c79c649ba4342b415ede" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-9ff2a611dfcb487496b827cf@0.1.0" name="test_lcg128xsl64_advancing">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"138dda9e95d11e152b7320f037c696ba08d730b68cdcf2dd50d27228c8bccf43","manifest_blake3":"978563c501c3e9eb047133db868d2027a359417fd391c79c649ba4342b415ede"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-9ff2a611dfcb487496b827cf@0.1.0" name="test_lcg128xsl64_advancing_restore">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"138dda9e95d11e152b7320f037c696ba08d730b68cdcf2dd50d27228c8bccf43","manifest_blake3":"978563c501c3e9eb047133db868d2027a359417fd391c79c649ba4342b415ede"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-9ff2a611dfcb487496b827cf@0.1.0" name="test_lcg128xsl64_construction">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"138dda9e95d11e152b7320f037c696ba08d730b68cdcf2dd50d27228c8bccf43","manifest_blake3":"978563c501c3e9eb047133db868d2027a359417fd391c79c649ba4342b415ede"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-9ff2a611dfcb487496b827cf@0.1.0" name="test_lcg128xsl64_reference">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"138dda9e95d11e152b7320f037c696ba08d730b68cdcf2dd50d27228c8bccf43","manifest_blake3":"978563c501c3e9eb047133db868d2027a359417fd391c79c649ba4342b415ede"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-a019ca5256e15035c2105423@0.1.0" tests="0" failures="0" errors="0" skipped="0" time="0.026">
+    <properties>
+      <property name="artifact_blake3" value="d54070a381e0c40789bbda743799b05598e8af37d418f7dce2cd2d98da5ea52e" />
+      <property name="manifest_blake3" value="cf554e775feb24f0a80b4ce4e52618d493e31848d67be3981a8dc3aa01cd1a4c" />
+    </properties>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" tests="12" failures="0" errors="0" skipped="0" time="0.152">
+    <properties>
+      <property name="artifact_blake3" value="dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b" />
+      <property name="manifest_blake3" value="bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_clone_streams">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_construction">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_multiple_blocks">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_nonce">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_true_bytes">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_true_values_a">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_true_values_b">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_true_values_c">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.01s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_word_pos_wrap_exact">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_word_pos_wrap_excess">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_chacha_word_pos_zero">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-d82399e19084ea22329003e8@0.1.0" name="chacha::test::test_trait_objects">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.03s\n\n","stderr":"","suite_identity":{"artifact_blake3":"dbe3a6c2eb50e5d229f7deef4103c20aadbd32f98dce9a352d5820badf40404b","manifest_blake3":"bdf17420946638ff0cd2fd1591bf14449ef1e04dcd8eb48f000191d6a4061782"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-efb783190ee87eff223e1118@0.1.0" tests="0" failures="0" errors="0" skipped="0" time="0.026">
+    <properties>
+      <property name="artifact_blake3" value="82e4755988976beb2c64f0deeb51c3647ec47922efa554d49ed7c0161e567740" />
+      <property name="manifest_blake3" value="7131cb2c53170655f3bfaa6d03ffa68e7b74aa887c479537f5e20bc797f5868d" />
+    </properties>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-f1c117dfe654741d80661573@0.1.0" tests="6" failures="0" errors="0" skipped="0" time="0.075">
+    <properties>
+      <property name="artifact_blake3" value="7ce08fec0979f26aeecfc1a06d9694860dbe40a1636e437a3a3292da5ff56e96" />
+      <property name="manifest_blake3" value="7adda6b78bdd35b28d452810acd6a734d5502ae78809f28af7da2fa8d22de488" />
+    </properties>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-f1c117dfe654741d80661573@0.1.0" name="hc128::test::test_hc128_clone">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"7ce08fec0979f26aeecfc1a06d9694860dbe40a1636e437a3a3292da5ff56e96","manifest_blake3":"7adda6b78bdd35b28d452810acd6a734d5502ae78809f28af7da2fa8d22de488"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-f1c117dfe654741d80661573@0.1.0" name="hc128::test::test_hc128_true_values_a">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"7ce08fec0979f26aeecfc1a06d9694860dbe40a1636e437a3a3292da5ff56e96","manifest_blake3":"7adda6b78bdd35b28d452810acd6a734d5502ae78809f28af7da2fa8d22de488"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-f1c117dfe654741d80661573@0.1.0" name="hc128::test::test_hc128_true_values_b">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"7ce08fec0979f26aeecfc1a06d9694860dbe40a1636e437a3a3292da5ff56e96","manifest_blake3":"7adda6b78bdd35b28d452810acd6a734d5502ae78809f28af7da2fa8d22de488"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-f1c117dfe654741d80661573@0.1.0" name="hc128::test::test_hc128_true_values_bytes">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"7ce08fec0979f26aeecfc1a06d9694860dbe40a1636e437a3a3292da5ff56e96","manifest_blake3":"7adda6b78bdd35b28d452810acd6a734d5502ae78809f28af7da2fa8d22de488"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-f1c117dfe654741d80661573@0.1.0" name="hc128::test::test_hc128_true_values_c">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"d49b00e4e3d0ffecdf1debbb7ed3965a","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"7ce08fec0979f26aeecfc1a06d9694860dbe40a1636e437a3a3292da5ff56e96","manifest_blake3":"7adda6b78bdd35b28d452810acd6a734d5502ae78809f28af7da2fa8d22de488"},"status":"passed"}]}</system-out>
+    </testcase>
+    <testcase classname="c9c92b9ccf63d793b39e0bd1cc57347c/test-f1c117dfe654741d80661573@0.1.0" name="hc128::test::test_hc128_true_values_u64">
+      <system-out>{"status":"passed","attempts":[{"attempt":1,"peer":"7f53240d1ad6f094968dc3657d83581d","exit_code":0,"stdout":"\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n","stderr":"","suite_identity":{"artifact_blake3":"7ce08fec0979f26aeecfc1a06d9694860dbe40a1636e437a3a3292da5ff56e96","manifest_blake3":"7adda6b78bdd35b28d452810acd6a734d5502ae78809f28af7da2fa8d22de488"},"status":"passed"}]}</system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-f65b82393c106101a4660afd@0.1.0" tests="0" failures="0" errors="0" skipped="0" time="0.057">
+    <properties>
+      <property name="artifact_blake3" value="8197f0b8431e3c0400de431790d4ec026125c736bc0816ca7a16bdd7299df2b9" />
+      <property name="manifest_blake3" value="195fa4ffca43c4e252a3a751fa1a6c15b4a8011a54a7209ac6a1cb4cc1686dc3" />
+    </properties>
+  </testsuite>
+  <testsuite name="c9c92b9ccf63d793b39e0bd1cc57347c/test-f7607972937438c84bc7203e@0.1.0" tests="0" failures="0" errors="0" skipped="0" time="0.065">
+    <properties>
+      <property name="artifact_blake3" value="c42ff23cff3336127fe384d52656f556bf0f96cdbcc2f335e82ca58a0b238791" />
+      <property name="manifest_blake3" value="d97a3ad8ee87f354d9cd61a0df55422be1059c03bf78c318bf97b355d23c838a" />
+    </properties>
+  </testsuite>
+</testsuites>

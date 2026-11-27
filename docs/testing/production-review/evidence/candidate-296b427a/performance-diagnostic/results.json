@@ -1,0 +1,6280 @@
+{
+  "revision": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "start_utc": "2026-11-27T08:43:42.509527+00:00",
+  "primary_sha256": "c3b78a0f30067cc2ef25d0f29dabe5e581bca0c7f893a5335c4be0cfb151558f",
+  "plan_sha256": "212880b6b80a25294c234271e95fb925c3ca8be7625dcfc461c373f0a8b89b88",
+  "driver_sha256": "f8392b8aa540ddaa89b81b01eaefb3c5f7b5eee494ea883e7ceb4497b5ffbea0",
+  "daemons": {
+    "baseline": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+    "candidate": "a581695b1ac2b939391501d3daef987ad188bddcd85a473ab661a7a1a31e936e"
+  },
+  "cli_sha256": "bbe332a3da4d23516930d50b3439ffa7fd2f6a0530fd14cd9329f27058baca02",
+  "cpu_before": {
+    "usage_usec": 82755509261,
+    "user_usec": 70390952668,
+    "system_usec": 12364556592,
+    "nice_usec": 77882137,
+    "nr_periods": 307164,
+    "nr_throttled": 130782,
+    "throttled_usec": 9548496984,
+    "nr_bursts": 0,
+    "burst_usec": 0
+  },
+  "cpu_samples": [
+    {
+      "utc": "2026-11-27T08:43:43.680740+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.28,
+          "daemon_compute-",
+          1034913
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82757442205,
+        "user_usec": 70392064067,
+        "system_usec": 12365378137,
+        "nice_usec": 77882137,
+        "nr_periods": 307176,
+        "nr_throttled": 130782,
+        "throttled_usec": 9548496984,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:44.754243+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.71,
+          "entangled",
+          1034924
+        ],
+        [
+          0.71,
+          "entangled",
+          1034917
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82759187955,
+        "user_usec": 70393296500,
+        "system_usec": 12365891454,
+        "nice_usec": 77882137,
+        "nr_periods": 307187,
+        "nr_throttled": 130782,
+        "throttled_usec": 9548496984,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:45.870584+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.29,
+          "entangled",
+          1034917
+        ],
+        [
+          1.25,
+          "entangled",
+          1034924
+        ],
+        [
+          0.18,
+          "daemon_compute-",
+          1034913
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82762354805,
+        "user_usec": 70395542589,
+        "system_usec": 12366812216,
+        "nice_usec": 77882137,
+        "nr_periods": 307198,
+        "nr_throttled": 130782,
+        "throttled_usec": 9548496984,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:46.959664+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82763705337,
+        "user_usec": 70396528249,
+        "system_usec": 12367177088,
+        "nice_usec": 77882137,
+        "nr_periods": 307209,
+        "nr_throttled": 130782,
+        "throttled_usec": 9548496984,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:48.072103+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.73,
+          "entangled",
+          1034988
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82766827555,
+        "user_usec": 70398861531,
+        "system_usec": 12367966023,
+        "nice_usec": 77882137,
+        "nr_periods": 307220,
+        "nr_throttled": 130783,
+        "throttled_usec": 9548497708,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:49.154264+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.87,
+          "entangled",
+          1034988
+        ],
+        [
+          0.56,
+          "python",
+          1034935
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82768609393,
+        "user_usec": 70400326664,
+        "system_usec": 12368282728,
+        "nice_usec": 77882137,
+        "nr_periods": 307231,
+        "nr_throttled": 130784,
+        "throttled_usec": 9548542348,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:50.230823+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.52,
+          "entangled",
+          1034988
+        ],
+        [
+          0.23,
+          "python",
+          1034935
+        ],
+        [
+          0.19,
+          "entangled",
+          1035066
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82771848804,
+        "user_usec": 70403327755,
+        "system_usec": 12368521049,
+        "nice_usec": 77882137,
+        "nr_periods": 307241,
+        "nr_throttled": 130785,
+        "throttled_usec": 9548543026,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:51.319169+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.89,
+          "entangled",
+          1035019
+        ],
+        [
+          0.86,
+          "entangled",
+          1034988
+        ],
+        [
+          0.4,
+          "entangled",
+          1035050
+        ],
+        [
+          0.3,
+          "python",
+          1034935
+        ],
+        [
+          0.24,
+          "entangled",
+          1035066
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82774870669,
+        "user_usec": 70405991518,
+        "system_usec": 12368879150,
+        "nice_usec": 77882137,
+        "nr_periods": 307252,
+        "nr_throttled": 130785,
+        "throttled_usec": 9548543026,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:52.456469+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.63,
+          "entangled",
+          1034988
+        ],
+        [
+          0.65,
+          "entangled",
+          1035019
+        ],
+        [
+          0.33,
+          "entangled",
+          1035066
+        ],
+        [
+          0.28,
+          "entangled",
+          1035050
+        ],
+        [
+          0.19,
+          "python",
+          1034935
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82778664765,
+        "user_usec": 70409200287,
+        "system_usec": 12369464478,
+        "nice_usec": 77882137,
+        "nr_periods": 307264,
+        "nr_throttled": 130789,
+        "throttled_usec": 9548575582,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:53.533025+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.0,
+          "entangled",
+          1034988
+        ],
+        [
+          0.34,
+          "entangled",
+          1035019
+        ],
+        [
+          0.31,
+          "python",
+          1034935
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82781833933,
+        "user_usec": 70412163048,
+        "system_usec": 12369670884,
+        "nice_usec": 77882137,
+        "nr_periods": 307274,
+        "nr_throttled": 130790,
+        "throttled_usec": 9548576279,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:54.607498+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.14,
+          "entangled",
+          1034988
+        ],
+        [
+          0.85,
+          "entangled",
+          1035019
+        ],
+        [
+          0.48,
+          "entangled",
+          1035050
+        ],
+        [
+          0.2,
+          "python",
+          1034935
+        ],
+        [
+          0.19,
+          "entangled",
+          1035066
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82785131366,
+        "user_usec": 70415115876,
+        "system_usec": 12370015490,
+        "nice_usec": 77882137,
+        "nr_periods": 307285,
+        "nr_throttled": 130790,
+        "throttled_usec": 9548576279,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:55.697111+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.98,
+          "entangled",
+          1034988
+        ],
+        [
+          0.18,
+          "python",
+          1034935
+        ],
+        [
+          0.17,
+          "entangled",
+          1035066
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82788848050,
+        "user_usec": 70418645523,
+        "system_usec": 12370202527,
+        "nice_usec": 77882137,
+        "nr_periods": 307296,
+        "nr_throttled": 130794,
+        "throttled_usec": 9548605464,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:56.786803+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82790308802,
+        "user_usec": 70419476375,
+        "system_usec": 12370832426,
+        "nice_usec": 77882137,
+        "nr_periods": 307307,
+        "nr_throttled": 130794,
+        "throttled_usec": 9548605464,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:57.854690+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.7,
+          "entangled",
+          1035132
+        ],
+        [
+          0.69,
+          "entangled",
+          1035139
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82792026026,
+        "user_usec": 70420705715,
+        "system_usec": 12371320310,
+        "nice_usec": 77882137,
+        "nr_periods": 307318,
+        "nr_throttled": 130794,
+        "throttled_usec": 9548605464,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:58.923527+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.78,
+          "entangled",
+          1035139
+        ],
+        [
+          0.78,
+          "entangled",
+          1035132
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82793909177,
+        "user_usec": 70422045375,
+        "system_usec": 12371863801,
+        "nice_usec": 77882137,
+        "nr_periods": 307328,
+        "nr_throttled": 130794,
+        "throttled_usec": 9548605464,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:43:59.988298+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82796427510,
+        "user_usec": 70424022155,
+        "system_usec": 12372405354,
+        "nice_usec": 77882137,
+        "nr_periods": 307339,
+        "nr_throttled": 130794,
+        "throttled_usec": 9548605464,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:01.082807+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.19,
+          "python",
+          1035149
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82799146862,
+        "user_usec": 70426398084,
+        "system_usec": 12372748777,
+        "nice_usec": 77882137,
+        "nr_periods": 307350,
+        "nr_throttled": 130795,
+        "throttled_usec": 9548639398,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:02.147923+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.77,
+          "entangled",
+          1035189
+        ],
+        [
+          0.54,
+          "python",
+          1035149
+        ],
+        [
+          0.18,
+          "entangled",
+          1035251
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82800879279,
+        "user_usec": 70427849710,
+        "system_usec": 12373029569,
+        "nice_usec": 77882137,
+        "nr_periods": 307360,
+        "nr_throttled": 130795,
+        "throttled_usec": 9548639398,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:03.229838+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.77,
+          "entangled",
+          1035189
+        ],
+        [
+          0.22,
+          "python",
+          1035149
+        ],
+        [
+          0.18,
+          "entangled",
+          1035267
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82804385437,
+        "user_usec": 70431135313,
+        "system_usec": 12373250123,
+        "nice_usec": 77882137,
+        "nr_periods": 307371,
+        "nr_throttled": 130796,
+        "throttled_usec": 9548649002,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:04.327060+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.14,
+          "entangled",
+          1035189
+        ],
+        [
+          0.47,
+          "entangled",
+          1035220
+        ],
+        [
+          0.37,
+          "entangled",
+          1035251
+        ],
+        [
+          0.31,
+          "python",
+          1035149
+        ],
+        [
+          0.22,
+          "entangled",
+          1035267
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82807240403,
+        "user_usec": 70433766560,
+        "system_usec": 12373473842,
+        "nice_usec": 77882137,
+        "nr_periods": 307382,
+        "nr_throttled": 130796,
+        "throttled_usec": 9548649002,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:05.433844+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.97,
+          "entangled",
+          1035189
+        ],
+        [
+          0.26,
+          "entangled",
+          1035267
+        ],
+        [
+          0.22,
+          "entangled",
+          1035251
+        ],
+        [
+          0.19,
+          "entangled",
+          1035220
+        ],
+        [
+          0.16,
+          "python",
+          1035149
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82810401949,
+        "user_usec": 70436706426,
+        "system_usec": 12373695523,
+        "nice_usec": 77882137,
+        "nr_periods": 307393,
+        "nr_throttled": 130796,
+        "throttled_usec": 9548649002,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:06.557077+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.15,
+          "entangled",
+          1035189
+        ],
+        [
+          0.34,
+          "entangled",
+          1035251
+        ],
+        [
+          0.27,
+          "entangled",
+          1035220
+        ],
+        [
+          0.2,
+          "python",
+          1035149
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82814026724,
+        "user_usec": 70440028507,
+        "system_usec": 12373998216,
+        "nice_usec": 77882137,
+        "nr_periods": 307405,
+        "nr_throttled": 130797,
+        "throttled_usec": 9548724977,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:07.654037+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.24,
+          "entangled",
+          1035189
+        ],
+        [
+          0.44,
+          "entangled",
+          1035220
+        ],
+        [
+          0.42,
+          "entangled",
+          1035251
+        ],
+        [
+          0.33,
+          "python",
+          1035149
+        ],
+        [
+          0.16,
+          "entangled",
+          1035267
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82816959943,
+        "user_usec": 70442748755,
+        "system_usec": 12374211187,
+        "nice_usec": 77882137,
+        "nr_periods": 307416,
+        "nr_throttled": 130797,
+        "throttled_usec": 9548724977,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:08.741979+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.85,
+          "entangled",
+          1035189
+        ],
+        [
+          0.2,
+          "python",
+          1035149
+        ],
+        [
+          0.18,
+          "entangled",
+          1035267
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82820556044,
+        "user_usec": 70446150701,
+        "system_usec": 12374405342,
+        "nice_usec": 77882137,
+        "nr_periods": 307426,
+        "nr_throttled": 130797,
+        "throttled_usec": 9548724977,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:09.844097+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82822191769,
+        "user_usec": 70447130719,
+        "system_usec": 12375061049,
+        "nice_usec": 77882137,
+        "nr_periods": 307437,
+        "nr_throttled": 130797,
+        "throttled_usec": 9548724977,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:10.914784+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.77,
+          "entangled",
+          1035316
+        ],
+        [
+          0.71,
+          "entangled",
+          1035325
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82824035594,
+        "user_usec": 70448433973,
+        "system_usec": 12375601620,
+        "nice_usec": 77882137,
+        "nr_periods": 307448,
+        "nr_throttled": 130797,
+        "throttled_usec": 9548724977,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:11.991216+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.79,
+          "entangled",
+          1035316
+        ],
+        [
+          0.71,
+          "entangled",
+          1035325
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82825866556,
+        "user_usec": 70449627075,
+        "system_usec": 12376239481,
+        "nice_usec": 77882137,
+        "nr_periods": 307459,
+        "nr_throttled": 130797,
+        "throttled_usec": 9548724977,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:13.078408+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82828576771,
+        "user_usec": 70451620403,
+        "system_usec": 12376956367,
+        "nice_usec": 77882137,
+        "nr_periods": 307470,
+        "nr_throttled": 130797,
+        "throttled_usec": 9548724977,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:14.197770+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.36,
+          "python",
+          1035343
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82830979250,
+        "user_usec": 70453640718,
+        "system_usec": 12377338532,
+        "nice_usec": 77882137,
+        "nr_periods": 307481,
+        "nr_throttled": 130797,
+        "throttled_usec": 9548724977,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:15.274232+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.45,
+          "python",
+          1035343
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82832746695,
+        "user_usec": 70455118890,
+        "system_usec": 12377627804,
+        "nice_usec": 77882137,
+        "nr_periods": 307492,
+        "nr_throttled": 130797,
+        "throttled_usec": 9548724977,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:16.384940+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.58,
+          "entangled",
+          1035383
+        ],
+        [
+          0.3,
+          "python",
+          1035343
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82836132374,
+        "user_usec": 70458138861,
+        "system_usec": 12377993513,
+        "nice_usec": 77882137,
+        "nr_periods": 307503,
+        "nr_throttled": 130798,
+        "throttled_usec": 9548725656,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:17.482905+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.98,
+          "entangled",
+          1035383
+        ],
+        [
+          0.51,
+          "entangled",
+          1035445
+        ],
+        [
+          0.27,
+          "entangled",
+          1035414
+        ],
+        [
+          0.24,
+          "entangled",
+          1035461
+        ],
+        [
+          0.17,
+          "python",
+          1035343
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82839690328,
+        "user_usec": 70461421361,
+        "system_usec": 12378268966,
+        "nice_usec": 77882137,
+        "nr_periods": 307514,
+        "nr_throttled": 130798,
+        "throttled_usec": 9548725656,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:18.575366+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.28,
+          "entangled",
+          1035383
+        ],
+        [
+          0.3,
+          "entangled",
+          1035445
+        ],
+        [
+          0.24,
+          "entangled",
+          1035461
+        ],
+        [
+          0.19,
+          "python",
+          1035343
+        ],
+        [
+          0.18,
+          "entangled",
+          1035414
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82843251372,
+        "user_usec": 70464704924,
+        "system_usec": 12378546448,
+        "nice_usec": 77882137,
+        "nr_periods": 307525,
+        "nr_throttled": 130798,
+        "throttled_usec": 9548725656,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:19.642960+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.91,
+          "entangled",
+          1035445
+        ],
+        [
+          0.53,
+          "entangled",
+          1035383
+        ],
+        [
+          0.46,
+          "entangled",
+          1035414
+        ],
+        [
+          0.32,
+          "python",
+          1035343
+        ],
+        [
+          0.2,
+          "entangled",
+          1035461
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82845945027,
+        "user_usec": 70467196224,
+        "system_usec": 12378748802,
+        "nice_usec": 77882137,
+        "nr_periods": 307535,
+        "nr_throttled": 130798,
+        "throttled_usec": 9548725656,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:20.712371+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.91,
+          "entangled",
+          1035383
+        ],
+        [
+          0.52,
+          "entangled",
+          1035445
+        ],
+        [
+          0.27,
+          "entangled",
+          1035414
+        ],
+        [
+          0.2,
+          "python",
+          1035343
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82849327483,
+        "user_usec": 70470349041,
+        "system_usec": 12378978441,
+        "nice_usec": 77882137,
+        "nr_periods": 307546,
+        "nr_throttled": 130798,
+        "throttled_usec": 9548725656,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:21.773550+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.93,
+          "entangled",
+          1035383
+        ],
+        [
+          0.4,
+          "entangled",
+          1035445
+        ],
+        [
+          0.26,
+          "python",
+          1035343
+        ],
+        [
+          0.18,
+          "entangled",
+          1035414
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82852505334,
+        "user_usec": 70473302995,
+        "system_usec": 12379202339,
+        "nice_usec": 77882137,
+        "nr_periods": 307557,
+        "nr_throttled": 130800,
+        "throttled_usec": 9548741997,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:22.843287+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82854975591,
+        "user_usec": 70475556492,
+        "system_usec": 12379419098,
+        "nice_usec": 77882137,
+        "nr_periods": 307567,
+        "nr_throttled": 130800,
+        "throttled_usec": 9548741997,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:23.929109+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.8,
+          "entangled",
+          1035540
+        ],
+        [
+          0.42,
+          "daemon_compute-",
+          1035536
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82856782075,
+        "user_usec": 70476555608,
+        "system_usec": 12380226466,
+        "nice_usec": 77882137,
+        "nr_periods": 307578,
+        "nr_throttled": 130800,
+        "throttled_usec": 9548741997,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:24.989179+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.76,
+          "entangled",
+          1035547
+        ],
+        [
+          0.75,
+          "entangled",
+          1035540
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82858576436,
+        "user_usec": 70477776247,
+        "system_usec": 12380800188,
+        "nice_usec": 77882137,
+        "nr_periods": 307589,
+        "nr_throttled": 130800,
+        "throttled_usec": 9548741997,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:26.058677+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.17,
+          "entangled",
+          1035547
+        ],
+        [
+          1.08,
+          "entangled",
+          1035540
+        ],
+        [
+          0.24,
+          "daemon_compute-",
+          1035536
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82861318906,
+        "user_usec": 70479774402,
+        "system_usec": 12381544504,
+        "nice_usec": 77882137,
+        "nr_periods": 307600,
+        "nr_throttled": 130800,
+        "throttled_usec": 9548741997,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:27.130702+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82862873940,
+        "user_usec": 70481033434,
+        "system_usec": 12381840506,
+        "nice_usec": 77882137,
+        "nr_periods": 307610,
+        "nr_throttled": 130800,
+        "throttled_usec": 9548741997,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:28.199290+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.66,
+          "entangled",
+          1035597
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82865720206,
+        "user_usec": 70483333021,
+        "system_usec": 12382387184,
+        "nice_usec": 77882137,
+        "nr_periods": 307621,
+        "nr_throttled": 130803,
+        "throttled_usec": 9548755597,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:29.289309+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.17,
+          "entangled",
+          1035597
+        ],
+        [
+          0.57,
+          "python",
+          1035557
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82867802163,
+        "user_usec": 70484981604,
+        "system_usec": 12382820558,
+        "nice_usec": 77882137,
+        "nr_periods": 307632,
+        "nr_throttled": 130804,
+        "throttled_usec": 9548784879,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:30.354373+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.66,
+          "entangled",
+          1035597
+        ],
+        [
+          0.2,
+          "python",
+          1035557
+        ],
+        [
+          0.19,
+          "entangled",
+          1035675
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82871122977,
+        "user_usec": 70488050469,
+        "system_usec": 12383072508,
+        "nice_usec": 77882137,
+        "nr_periods": 307643,
+        "nr_throttled": 130805,
+        "throttled_usec": 9548797481,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:31.431101+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.93,
+          "entangled",
+          1035659
+        ],
+        [
+          0.78,
+          "entangled",
+          1035597
+        ],
+        [
+          0.46,
+          "entangled",
+          1035628
+        ],
+        [
+          0.33,
+          "python",
+          1035557
+        ],
+        [
+          0.21,
+          "entangled",
+          1035675
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82874093235,
+        "user_usec": 70490708903,
+        "system_usec": 12383384331,
+        "nice_usec": 77882137,
+        "nr_periods": 307653,
+        "nr_throttled": 130805,
+        "throttled_usec": 9548797481,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:32.546377+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.91,
+          "entangled",
+          1035597
+        ],
+        [
+          0.57,
+          "entangled",
+          1035659
+        ],
+        [
+          0.3,
+          "entangled",
+          1035628
+        ],
+        [
+          0.24,
+          "entangled",
+          1035675
+        ],
+        [
+          0.16,
+          "python",
+          1035557
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82877758077,
+        "user_usec": 70494030032,
+        "system_usec": 12383728044,
+        "nice_usec": 77882137,
+        "nr_periods": 307664,
+        "nr_throttled": 130805,
+        "throttled_usec": 9548797481,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:33.608444+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.85,
+          "entangled",
+          1035597
+        ],
+        [
+          0.33,
+          "python",
+          1035557
+        ],
+        [
+          0.3,
+          "entangled",
+          1035659
+        ],
+        [
+          0.23,
+          "entangled",
+          1035628
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82880767124,
+        "user_usec": 70496880742,
+        "system_usec": 12383886381,
+        "nice_usec": 77882137,
+        "nr_periods": 307675,
+        "nr_throttled": 130806,
+        "throttled_usec": 9548802499,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:34.694810+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.51,
+          "entangled",
+          1035597
+        ],
+        [
+          0.88,
+          "entangled",
+          1035659
+        ],
+        [
+          0.41,
+          "entangled",
+          1035628
+        ],
+        [
+          0.19,
+          "python",
+          1035557
+        ],
+        [
+          0.17,
+          "entangled",
+          1035675
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82884276312,
+        "user_usec": 70500163145,
+        "system_usec": 12384113166,
+        "nice_usec": 77882137,
+        "nr_periods": 307686,
+        "nr_throttled": 130807,
+        "throttled_usec": 9548808575,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:35.765189+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.3,
+          "entangled",
+          1035597
+        ],
+        [
+          0.28,
+          "python",
+          1035557
+        ],
+        [
+          0.2,
+          "entangled",
+          1035675
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82887470924,
+        "user_usec": 70503037004,
+        "system_usec": 12384433920,
+        "nice_usec": 77882137,
+        "nr_periods": 307697,
+        "nr_throttled": 130809,
+        "throttled_usec": 9548847093,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:36.852665+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82888995970,
+        "user_usec": 70503905638,
+        "system_usec": 12385090332,
+        "nice_usec": 77882137,
+        "nr_periods": 307707,
+        "nr_throttled": 130809,
+        "throttled_usec": 9548847093,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:37.921968+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.75,
+          "entangled",
+          1035735
+        ],
+        [
+          0.66,
+          "entangled",
+          1035742
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82890736099,
+        "user_usec": 70505128130,
+        "system_usec": 12385607968,
+        "nice_usec": 77882137,
+        "nr_periods": 307718,
+        "nr_throttled": 130809,
+        "throttled_usec": 9548847093,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:39.016063+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.9,
+          "entangled",
+          1035735
+        ],
+        [
+          0.83,
+          "entangled",
+          1035742
+        ],
+        [
+          0.21,
+          "daemon_compute-",
+          1035731
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82892956291,
+        "user_usec": 70506633282,
+        "system_usec": 12386323009,
+        "nice_usec": 77882137,
+        "nr_periods": 307729,
+        "nr_throttled": 130809,
+        "throttled_usec": 9548847093,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:40.072721+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82895057395,
+        "user_usec": 70508356333,
+        "system_usec": 12386701062,
+        "nice_usec": 77882137,
+        "nr_periods": 307740,
+        "nr_throttled": 130809,
+        "throttled_usec": 9548847093,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:41.170574+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82898230379,
+        "user_usec": 70511049091,
+        "system_usec": 12387181288,
+        "nice_usec": 77882137,
+        "nr_periods": 307751,
+        "nr_throttled": 130814,
+        "throttled_usec": 9549038660,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:42.230995+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.59,
+          "entangled",
+          1035792
+        ],
+        [
+          0.56,
+          "python",
+          1035752
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82899688943,
+        "user_usec": 70512245701,
+        "system_usec": 12387443241,
+        "nice_usec": 77882137,
+        "nr_periods": 307761,
+        "nr_throttled": 130814,
+        "throttled_usec": 9549038660,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:43.354344+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.92,
+          "entangled",
+          1035792
+        ],
+        [
+          0.17,
+          "python",
+          1035752
+        ],
+        [
+          0.17,
+          "entangled",
+          1035885
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82903480566,
+        "user_usec": 70515705700,
+        "system_usec": 12387774866,
+        "nice_usec": 77882137,
+        "nr_periods": 307773,
+        "nr_throttled": 130815,
+        "throttled_usec": 9549064563,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:44.456088+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.96,
+          "entangled",
+          1035836
+        ],
+        [
+          0.7,
+          "entangled",
+          1035792
+        ],
+        [
+          0.48,
+          "entangled",
+          1035869
+        ],
+        [
+          0.32,
+          "python",
+          1035752
+        ],
+        [
+          0.23,
+          "entangled",
+          1035885
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82906539103,
+        "user_usec": 70518401780,
+        "system_usec": 12388137322,
+        "nice_usec": 77882137,
+        "nr_periods": 307784,
+        "nr_throttled": 130816,
+        "throttled_usec": 9549065075,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:45.540520+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.69,
+          "entangled",
+          1035792
+        ],
+        [
+          0.72,
+          "entangled",
+          1035836
+        ],
+        [
+          0.39,
+          "entangled",
+          1035869
+        ],
+        [
+          0.3,
+          "entangled",
+          1035885
+        ],
+        [
+          0.17,
+          "python",
+          1035752
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82910139831,
+        "user_usec": 70521790273,
+        "system_usec": 12388349558,
+        "nice_usec": 77882137,
+        "nr_periods": 307794,
+        "nr_throttled": 130816,
+        "throttled_usec": 9549065075,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:46.624145+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.8,
+          "entangled",
+          1035792
+        ],
+        [
+          0.34,
+          "python",
+          1035752
+        ],
+        [
+          0.31,
+          "entangled",
+          1035836
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82913103657,
+        "user_usec": 70524555916,
+        "system_usec": 12388547741,
+        "nice_usec": 77882137,
+        "nr_periods": 307805,
+        "nr_throttled": 130817,
+        "throttled_usec": 9549076686,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:47.728362+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.48,
+          "entangled",
+          1035792
+        ],
+        [
+          0.83,
+          "entangled",
+          1035836
+        ],
+        [
+          0.36,
+          "entangled",
+          1035869
+        ],
+        [
+          0.19,
+          "python",
+          1035752
+        ],
+        [
+          0.17,
+          "entangled",
+          1035885
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82916542552,
+        "user_usec": 70527752390,
+        "system_usec": 12388790162,
+        "nice_usec": 77882137,
+        "nr_periods": 307816,
+        "nr_throttled": 130818,
+        "throttled_usec": 9549092362,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:48.802404+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.16,
+          "entangled",
+          1035792
+        ],
+        [
+          0.32,
+          "python",
+          1035752
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82919502808,
+        "user_usec": 70530533740,
+        "system_usec": 12388969068,
+        "nice_usec": 77882137,
+        "nr_periods": 307827,
+        "nr_throttled": 130820,
+        "throttled_usec": 9549140534,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:49.884104+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82921093001,
+        "user_usec": 70531390032,
+        "system_usec": 12389702968,
+        "nice_usec": 77882137,
+        "nr_periods": 307838,
+        "nr_throttled": 130820,
+        "throttled_usec": 9549140534,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:50.955040+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.72,
+          "entangled",
+          1035942
+        ],
+        [
+          0.7,
+          "entangled",
+          1035935
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82922785150,
+        "user_usec": 70532572709,
+        "system_usec": 12390212441,
+        "nice_usec": 77882137,
+        "nr_periods": 307849,
+        "nr_throttled": 130820,
+        "throttled_usec": 9549140534,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:52.049221+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.15,
+          "entangled",
+          1035935
+        ],
+        [
+          1.08,
+          "entangled",
+          1035942
+        ],
+        [
+          0.24,
+          "daemon_compute-",
+          1035931
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82925568915,
+        "user_usec": 70534609242,
+        "system_usec": 12390959673,
+        "nice_usec": 77882137,
+        "nr_periods": 307859,
+        "nr_throttled": 130820,
+        "throttled_usec": 9549140534,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:53.190065+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82927598469,
+        "user_usec": 70536210889,
+        "system_usec": 12391387579,
+        "nice_usec": 77882137,
+        "nr_periods": 307871,
+        "nr_throttled": 130821,
+        "throttled_usec": 9549163968,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:54.254276+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.22,
+          "entangled",
+          1035992
+        ],
+        [
+          0.2,
+          "python",
+          1035952
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82929898573,
+        "user_usec": 70538294041,
+        "system_usec": 12391604531,
+        "nice_usec": 77882137,
+        "nr_periods": 307882,
+        "nr_throttled": 130821,
+        "throttled_usec": 9549163968,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:55.340068+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.92,
+          "entangled",
+          1035992
+        ],
+        [
+          0.49,
+          "python",
+          1035952
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82932623047,
+        "user_usec": 70540834525,
+        "system_usec": 12391788521,
+        "nice_usec": 77882137,
+        "nr_periods": 307892,
+        "nr_throttled": 130821,
+        "throttled_usec": 9549163968,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:56.471473+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.65,
+          "entangled",
+          1035992
+        ],
+        [
+          0.71,
+          "entangled",
+          1036023
+        ],
+        [
+          0.34,
+          "entangled",
+          1036054
+        ],
+        [
+          0.29,
+          "entangled",
+          1036070
+        ],
+        [
+          0.17,
+          "python",
+          1035952
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82936319805,
+        "user_usec": 70544126945,
+        "system_usec": 12392192859,
+        "nice_usec": 77882137,
+        "nr_periods": 307904,
+        "nr_throttled": 130822,
+        "throttled_usec": 9549197520,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:57.538338+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.8,
+          "entangled",
+          1035992
+        ],
+        [
+          0.35,
+          "entangled",
+          1036023
+        ],
+        [
+          0.29,
+          "python",
+          1035952
+        ],
+        [
+          0.22,
+          "entangled",
+          1036070
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82939353467,
+        "user_usec": 70546949072,
+        "system_usec": 12392404395,
+        "nice_usec": 77882137,
+        "nr_periods": 307914,
+        "nr_throttled": 130822,
+        "throttled_usec": 9549197520,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:58.617203+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.35,
+          "entangled",
+          1035992
+        ],
+        [
+          0.85,
+          "entangled",
+          1036023
+        ],
+        [
+          0.43,
+          "entangled",
+          1036054
+        ],
+        [
+          0.21,
+          "python",
+          1035952
+        ],
+        [
+          0.17,
+          "entangled",
+          1036070
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82942709704,
+        "user_usec": 70550020139,
+        "system_usec": 12392689565,
+        "nice_usec": 77882137,
+        "nr_periods": 307925,
+        "nr_throttled": 130823,
+        "throttled_usec": 9549198182,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:44:59.669661+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.14,
+          "entangled",
+          1035992
+        ],
+        [
+          0.91,
+          "entangled",
+          1036023
+        ],
+        [
+          0.45,
+          "entangled",
+          1036054
+        ],
+        [
+          0.23,
+          "python",
+          1035952
+        ],
+        [
+          0.19,
+          "entangled",
+          1036070
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82945831690,
+        "user_usec": 70552926014,
+        "system_usec": 12392905675,
+        "nice_usec": 77882137,
+        "nr_periods": 307936,
+        "nr_throttled": 130823,
+        "throttled_usec": 9549198182,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:00.740255+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.51,
+          "entangled",
+          1035992
+        ],
+        [
+          0.27,
+          "python",
+          1035952
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82949154191,
+        "user_usec": 70555999670,
+        "system_usec": 12393154520,
+        "nice_usec": 77882137,
+        "nr_periods": 307946,
+        "nr_throttled": 130826,
+        "throttled_usec": 9549239659,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:01.802147+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82951117290,
+        "user_usec": 70557661140,
+        "system_usec": 12393456149,
+        "nice_usec": 77882137,
+        "nr_periods": 307957,
+        "nr_throttled": 130827,
+        "throttled_usec": 9549240344,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:02.871489+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.77,
+          "entangled",
+          1036132
+        ],
+        [
+          0.5,
+          "entangled",
+          1036139
+        ],
+        [
+          0.29,
+          "daemon_compute-",
+          1036128
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82952879363,
+        "user_usec": 70558804390,
+        "system_usec": 12394074972,
+        "nice_usec": 77882137,
+        "nr_periods": 307968,
+        "nr_throttled": 130827,
+        "throttled_usec": 9549240344,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:03.966184+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.66,
+          "entangled",
+          1036132
+        ],
+        [
+          0.65,
+          "entangled",
+          1036139
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82954558160,
+        "user_usec": 70559938832,
+        "system_usec": 12394619327,
+        "nice_usec": 77882137,
+        "nr_periods": 307979,
+        "nr_throttled": 130827,
+        "throttled_usec": 9549240344,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:05.028517+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82957459926,
+        "user_usec": 70562048989,
+        "system_usec": 12395410936,
+        "nice_usec": 77882137,
+        "nr_periods": 307989,
+        "nr_throttled": 130827,
+        "throttled_usec": 9549240344,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:06.143917+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.53,
+          "python",
+          1036150
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82959355088,
+        "user_usec": 70563705520,
+        "system_usec": 12395649567,
+        "nice_usec": 77882137,
+        "nr_periods": 308000,
+        "nr_throttled": 130828,
+        "throttled_usec": 9549241047,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:07.204078+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.64,
+          "entangled",
+          1036221
+        ],
+        [
+          0.32,
+          "python",
+          1036150
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82961466135,
+        "user_usec": 70565633119,
+        "system_usec": 12395833016,
+        "nice_usec": 77882137,
+        "nr_periods": 308011,
+        "nr_throttled": 130830,
+        "throttled_usec": 9549313743,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:08.284520+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.34,
+          "entangled",
+          1036190
+        ],
+        [
+          0.35,
+          "python",
+          1036150
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82964527195,
+        "user_usec": 70568456235,
+        "system_usec": 12396070959,
+        "nice_usec": 77882137,
+        "nr_periods": 308022,
+        "nr_throttled": 130830,
+        "throttled_usec": 9549313743,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:09.386773+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.82,
+          "entangled",
+          1036190
+        ],
+        [
+          0.41,
+          "entangled",
+          1036252
+        ],
+        [
+          0.41,
+          "entangled",
+          1036221
+        ],
+        [
+          0.3,
+          "entangled",
+          1036268
+        ],
+        [
+          0.17,
+          "python",
+          1036150
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82968068350,
+        "user_usec": 70571675314,
+        "system_usec": 12396393035,
+        "nice_usec": 77882137,
+        "nr_periods": 308033,
+        "nr_throttled": 130831,
+        "throttled_usec": 9549315134,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:10.470212+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.9,
+          "entangled",
+          1036190
+        ],
+        [
+          0.31,
+          "python",
+          1036150
+        ],
+        [
+          0.21,
+          "entangled",
+          1036268
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82970940626,
+        "user_usec": 70574350755,
+        "system_usec": 12396589871,
+        "nice_usec": 77882137,
+        "nr_periods": 308044,
+        "nr_throttled": 130831,
+        "throttled_usec": 9549315134,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:11.564302+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.18,
+          "entangled",
+          1036190
+        ],
+        [
+          0.36,
+          "entangled",
+          1036252
+        ],
+        [
+          0.34,
+          "entangled",
+          1036221
+        ],
+        [
+          0.18,
+          "python",
+          1036150
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82974538401,
+        "user_usec": 70577693710,
+        "system_usec": 12396844691,
+        "nice_usec": 77882137,
+        "nr_periods": 308055,
+        "nr_throttled": 130832,
+        "throttled_usec": 9549316497,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:12.688362+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.33,
+          "entangled",
+          1036190
+        ],
+        [
+          0.39,
+          "entangled",
+          1036252
+        ],
+        [
+          0.34,
+          "python",
+          1036150
+        ],
+        [
+          0.34,
+          "entangled",
+          1036221
+        ],
+        [
+          0.17,
+          "entangled",
+          1036268
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82977528469,
+        "user_usec": 70580507876,
+        "system_usec": 12397020592,
+        "nice_usec": 77882137,
+        "nr_periods": 308066,
+        "nr_throttled": 130832,
+        "throttled_usec": 9549316497,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:13.973547+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.69,
+          "entangled",
+          1036190
+        ],
+        [
+          0.2,
+          "python3",
+          1034902
+        ],
+        [
+          0.2,
+          "python",
+          1036150
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82981703232,
+        "user_usec": 70584199290,
+        "system_usec": 12397503941,
+        "nice_usec": 77882137,
+        "nr_periods": 308079,
+        "nr_throttled": 130834,
+        "throttled_usec": 9549392590,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:15.105029+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82982937152,
+        "user_usec": 70584819520,
+        "system_usec": 12398117631,
+        "nice_usec": 77882137,
+        "nr_periods": 308090,
+        "nr_throttled": 130834,
+        "throttled_usec": 9549392590,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:16.187656+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.87,
+          "entangled",
+          1036317
+        ],
+        [
+          0.58,
+          "entangled",
+          1036324
+        ],
+        [
+          0.27,
+          "daemon_compute-",
+          1036313
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82984879982,
+        "user_usec": 70586058043,
+        "system_usec": 12398821939,
+        "nice_usec": 77882137,
+        "nr_periods": 308101,
+        "nr_throttled": 130834,
+        "throttled_usec": 9549392590,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:17.270932+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.71,
+          "entangled",
+          1036317
+        ],
+        [
+          0.68,
+          "entangled",
+          1036324
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82986627029,
+        "user_usec": 70587173151,
+        "system_usec": 12399453878,
+        "nice_usec": 77882137,
+        "nr_periods": 308112,
+        "nr_throttled": 130834,
+        "throttled_usec": 9549392590,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:18.349323+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 82989455476,
+        "user_usec": 70589242272,
+        "system_usec": 12400213204,
+        "nice_usec": 77882137,
+        "nr_periods": 308122,
+        "nr_throttled": 130834,
+        "throttled_usec": 9549392590,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:19.516241+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.37,
+          "python",
+          1036345
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82991948713,
+        "user_usec": 70591269296,
+        "system_usec": 12400679417,
+        "nice_usec": 77882137,
+        "nr_periods": 308134,
+        "nr_throttled": 130834,
+        "throttled_usec": 9549392590,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:20.574042+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.43,
+          "python",
+          1036345
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82993559362,
+        "user_usec": 70592583790,
+        "system_usec": 12400975572,
+        "nice_usec": 77882137,
+        "nr_periods": 308145,
+        "nr_throttled": 130834,
+        "throttled_usec": 9549392590,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:21.654721+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.51,
+          "entangled",
+          1036385
+        ],
+        [
+          0.29,
+          "python",
+          1036345
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 82996690098,
+        "user_usec": 70595422760,
+        "system_usec": 12401267337,
+        "nice_usec": 77882137,
+        "nr_periods": 308156,
+        "nr_throttled": 130835,
+        "throttled_usec": 9549392973,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:22.728858+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.7,
+          "entangled",
+          1036385
+        ],
+        [
+          0.65,
+          "entangled",
+          1036416
+        ],
+        [
+          0.31,
+          "entangled",
+          1036464
+        ],
+        [
+          0.27,
+          "entangled",
+          1036480
+        ],
+        [
+          0.17,
+          "python",
+          1036345
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83000088751,
+        "user_usec": 70598575452,
+        "system_usec": 12401513298,
+        "nice_usec": 77882137,
+        "nr_periods": 308166,
+        "nr_throttled": 130835,
+        "throttled_usec": 9549392973,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:23.784863+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.16,
+          "entangled",
+          1036385
+        ],
+        [
+          0.23,
+          "python",
+          1036345
+        ],
+        [
+          0.23,
+          "entangled",
+          1036416
+        ],
+        [
+          0.2,
+          "entangled",
+          1036480
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83003247383,
+        "user_usec": 70601583394,
+        "system_usec": 12401663989,
+        "nice_usec": 77882137,
+        "nr_periods": 308177,
+        "nr_throttled": 130835,
+        "throttled_usec": 9549392973,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:24.859442+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.05,
+          "entangled",
+          1036385
+        ],
+        [
+          0.87,
+          "entangled",
+          1036416
+        ],
+        [
+          0.45,
+          "entangled",
+          1036464
+        ],
+        [
+          0.25,
+          "python",
+          1036345
+        ],
+        [
+          0.17,
+          "entangled",
+          1036480
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83006304245,
+        "user_usec": 70604408347,
+        "system_usec": 12401895897,
+        "nice_usec": 77882137,
+        "nr_periods": 308188,
+        "nr_throttled": 130835,
+        "throttled_usec": 9549392973,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:25.944292+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.43,
+          "entangled",
+          1036385
+        ],
+        [
+          0.81,
+          "entangled",
+          1036416
+        ],
+        [
+          0.45,
+          "entangled",
+          1036464
+        ],
+        [
+          0.18,
+          "python",
+          1036345
+        ],
+        [
+          0.18,
+          "entangled",
+          1036480
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83009688680,
+        "user_usec": 70607547318,
+        "system_usec": 12402141361,
+        "nice_usec": 77882137,
+        "nr_periods": 308198,
+        "nr_throttled": 130836,
+        "throttled_usec": 9549393712,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:27.028917+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.18,
+          "entangled",
+          1036385
+        ],
+        [
+          0.32,
+          "python",
+          1036345
+        ],
+        [
+          0.16,
+          "entangled",
+          1036480
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83012635727,
+        "user_usec": 70610325332,
+        "system_usec": 12402310395,
+        "nice_usec": 77882137,
+        "nr_periods": 308209,
+        "nr_throttled": 130836,
+        "throttled_usec": 9549393712,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:28.084204+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83014697676,
+        "user_usec": 70612057220,
+        "system_usec": 12402640455,
+        "nice_usec": 77882137,
+        "nr_periods": 308220,
+        "nr_throttled": 130836,
+        "throttled_usec": 9549393712,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:29.155965+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.77,
+          "entangled",
+          1036531
+        ],
+        [
+          0.57,
+          "entangled",
+          1036538
+        ],
+        [
+          0.21,
+          "daemon_compute-",
+          1036527
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83016428772,
+        "user_usec": 70613143070,
+        "system_usec": 12403285701,
+        "nice_usec": 77882137,
+        "nr_periods": 308231,
+        "nr_throttled": 130836,
+        "throttled_usec": 9549393712,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:30.235215+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.65,
+          "entangled",
+          1036538
+        ],
+        [
+          0.55,
+          "entangled",
+          1036531
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83017950939,
+        "user_usec": 70614224860,
+        "system_usec": 12403726078,
+        "nice_usec": 77882137,
+        "nr_periods": 308241,
+        "nr_throttled": 130836,
+        "throttled_usec": 9549393712,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:31.324588+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.83,
+          "entangled",
+          1036531
+        ],
+        [
+          0.77,
+          "entangled",
+          1036538
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83019916905,
+        "user_usec": 70615614561,
+        "system_usec": 12404302343,
+        "nice_usec": 77882137,
+        "nr_periods": 308252,
+        "nr_throttled": 130836,
+        "throttled_usec": 9549393712,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:32.376312+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83022327719,
+        "user_usec": 70617507383,
+        "system_usec": 12404820335,
+        "nice_usec": 77882137,
+        "nr_periods": 308263,
+        "nr_throttled": 130836,
+        "throttled_usec": 9549393712,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:33.507090+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.21,
+          "python",
+          1036549
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83025135871,
+        "user_usec": 70620038801,
+        "system_usec": 12405097069,
+        "nice_usec": 77882137,
+        "nr_periods": 308274,
+        "nr_throttled": 130836,
+        "throttled_usec": 9549393712,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:34.558455+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.63,
+          "entangled",
+          1036651
+        ],
+        [
+          0.52,
+          "python",
+          1036549
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83026614347,
+        "user_usec": 70621251425,
+        "system_usec": 12405362922,
+        "nice_usec": 77882137,
+        "nr_periods": 308285,
+        "nr_throttled": 130837,
+        "throttled_usec": 9549425734,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:35.627383+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.76,
+          "entangled",
+          1036589
+        ],
+        [
+          0.21,
+          "python",
+          1036549
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83029978604,
+        "user_usec": 70624289097,
+        "system_usec": 12405689506,
+        "nice_usec": 77882137,
+        "nr_periods": 308295,
+        "nr_throttled": 130837,
+        "throttled_usec": 9549425734,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:36.683530+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.19,
+          "entangled",
+          1036589
+        ],
+        [
+          0.84,
+          "entangled",
+          1036620
+        ],
+        [
+          0.48,
+          "entangled",
+          1036651
+        ],
+        [
+          0.26,
+          "entangled",
+          1036667
+        ],
+        [
+          0.19,
+          "python",
+          1036549
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83033157256,
+        "user_usec": 70627245713,
+        "system_usec": 12405911543,
+        "nice_usec": 77882137,
+        "nr_periods": 308306,
+        "nr_throttled": 130838,
+        "throttled_usec": 9549438941,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:37.757511+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.87,
+          "entangled",
+          1036589
+        ],
+        [
+          0.28,
+          "python",
+          1036549
+        ],
+        [
+          0.28,
+          "entangled",
+          1036620
+        ],
+        [
+          0.25,
+          "entangled",
+          1036667
+        ],
+        [
+          0.16,
+          "entangled",
+          1036651
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83036281770,
+        "user_usec": 70630204624,
+        "system_usec": 12406077145,
+        "nice_usec": 77882137,
+        "nr_periods": 308317,
+        "nr_throttled": 130838,
+        "throttled_usec": 9549438941,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:38.820652+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.94,
+          "entangled",
+          1036589
+        ],
+        [
+          0.5,
+          "entangled",
+          1036620
+        ],
+        [
+          0.3,
+          "entangled",
+          1036651
+        ],
+        [
+          0.21,
+          "python",
+          1036549
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83039574688,
+        "user_usec": 70633298861,
+        "system_usec": 12406275827,
+        "nice_usec": 77882137,
+        "nr_periods": 308327,
+        "nr_throttled": 130838,
+        "throttled_usec": 9549438941,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:39.941989+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.13,
+          "entangled",
+          1036589
+        ],
+        [
+          0.87,
+          "entangled",
+          1036620
+        ],
+        [
+          0.42,
+          "entangled",
+          1036651
+        ],
+        [
+          0.26,
+          "python",
+          1036549
+        ],
+        [
+          0.16,
+          "entangled",
+          1036667
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83042879527,
+        "user_usec": 70636412326,
+        "system_usec": 12406467200,
+        "nice_usec": 77882137,
+        "nr_periods": 308338,
+        "nr_throttled": 130838,
+        "throttled_usec": 9549438941,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:41.018642+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.54,
+          "entangled",
+          1036589
+        ],
+        [
+          0.21,
+          "python",
+          1036549
+        ],
+        [
+          0.19,
+          "entangled",
+          1036667
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83046110576,
+        "user_usec": 70639465951,
+        "system_usec": 12406644624,
+        "nice_usec": 77882137,
+        "nr_periods": 308349,
+        "nr_throttled": 130841,
+        "throttled_usec": 9549466602,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:42.098430+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83047609171,
+        "user_usec": 70640397530,
+        "system_usec": 12407211641,
+        "nice_usec": 77882137,
+        "nr_periods": 308360,
+        "nr_throttled": 130841,
+        "throttled_usec": 9549466602,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:43.171555+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.71,
+          "entangled",
+          1036718
+        ],
+        [
+          0.68,
+          "entangled",
+          1036725
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83049295100,
+        "user_usec": 70641571679,
+        "system_usec": 12407723421,
+        "nice_usec": 77882137,
+        "nr_periods": 308371,
+        "nr_throttled": 130841,
+        "throttled_usec": 9549466602,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:44.245337+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.87,
+          "entangled",
+          1036718
+        ],
+        [
+          0.82,
+          "entangled",
+          1036725
+        ],
+        [
+          0.17,
+          "daemon_compute-",
+          1036713
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83051357893,
+        "user_usec": 70643054844,
+        "system_usec": 12408303048,
+        "nice_usec": 77882137,
+        "nr_periods": 308381,
+        "nr_throttled": 130841,
+        "throttled_usec": 9549466602,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:45.300438+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83053671287,
+        "user_usec": 70644894291,
+        "system_usec": 12408776996,
+        "nice_usec": 77882137,
+        "nr_periods": 308392,
+        "nr_throttled": 130841,
+        "throttled_usec": 9549466602,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:46.415502+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83056517263,
+        "user_usec": 70647455470,
+        "system_usec": 12409061793,
+        "nice_usec": 77882137,
+        "nr_periods": 308403,
+        "nr_throttled": 130842,
+        "throttled_usec": 9549467349,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:47.492298+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.93,
+          "entangled",
+          1036775
+        ],
+        [
+          0.57,
+          "python",
+          1036735
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83058348375,
+        "user_usec": 70649106442,
+        "system_usec": 12409241933,
+        "nice_usec": 77882137,
+        "nr_periods": 308414,
+        "nr_throttled": 130843,
+        "throttled_usec": 9549468721,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:48.545524+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.43,
+          "entangled",
+          1036775
+        ],
+        [
+          0.28,
+          "python",
+          1036735
+        ],
+        [
+          0.17,
+          "entangled",
+          1036853
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83061460193,
+        "user_usec": 70652052935,
+        "system_usec": 12409407258,
+        "nice_usec": 77882137,
+        "nr_periods": 308424,
+        "nr_throttled": 130845,
+        "throttled_usec": 9549497570,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:49.660272+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.08,
+          "entangled",
+          1036806
+        ],
+        [
+          0.68,
+          "entangled",
+          1036775
+        ],
+        [
+          0.58,
+          "entangled",
+          1036837
+        ],
+        [
+          0.23,
+          "entangled",
+          1036853
+        ],
+        [
+          0.22,
+          "python",
+          1036735
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83064677899,
+        "user_usec": 70654960956,
+        "system_usec": 12409716943,
+        "nice_usec": 77882137,
+        "nr_periods": 308436,
+        "nr_throttled": 130845,
+        "throttled_usec": 9549497570,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:50.756219+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.08,
+          "entangled",
+          1036775
+        ],
+        [
+          0.34,
+          "entangled",
+          1036853
+        ],
+        [
+          0.26,
+          "entangled",
+          1036806
+        ],
+        [
+          0.22,
+          "python",
+          1036735
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83068079827,
+        "user_usec": 70658051445,
+        "system_usec": 12410028382,
+        "nice_usec": 77882137,
+        "nr_periods": 308447,
+        "nr_throttled": 130846,
+        "throttled_usec": 9549499125,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:51.823867+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.08,
+          "entangled",
+          1036775
+        ],
+        [
+          0.61,
+          "entangled",
+          1036806
+        ],
+        [
+          0.31,
+          "entangled",
+          1036837
+        ],
+        [
+          0.17,
+          "python",
+          1036735
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83071675619,
+        "user_usec": 70661455886,
+        "system_usec": 12410219733,
+        "nice_usec": 77882137,
+        "nr_periods": 308457,
+        "nr_throttled": 130846,
+        "throttled_usec": 9549499125,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:52.917311+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.91,
+          "entangled",
+          1036806
+        ],
+        [
+          0.83,
+          "entangled",
+          1036775
+        ],
+        [
+          0.42,
+          "entangled",
+          1036837
+        ],
+        [
+          0.23,
+          "python",
+          1036735
+        ],
+        [
+          0.19,
+          "entangled",
+          1036853
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83075188989,
+        "user_usec": 70664411028,
+        "system_usec": 12410777960,
+        "nice_usec": 77882137,
+        "nr_periods": 308468,
+        "nr_throttled": 130850,
+        "throttled_usec": 9549638085,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:53.989529+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.32,
+          "entangled",
+          1036775
+        ],
+        [
+          0.27,
+          "python",
+          1036735
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83078134597,
+        "user_usec": 70667204473,
+        "system_usec": 12410930123,
+        "nice_usec": 77882137,
+        "nr_periods": 308479,
+        "nr_throttled": 130850,
+        "throttled_usec": 9549638085,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:55.053807+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83080145077,
+        "user_usec": 70668936493,
+        "system_usec": 12411208583,
+        "nice_usec": 77882137,
+        "nr_periods": 308490,
+        "nr_throttled": 130851,
+        "throttled_usec": 9549639445,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:56.118844+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.8,
+          "entangled",
+          1036944
+        ],
+        [
+          0.56,
+          "entangled",
+          1036951
+        ],
+        [
+          0.22,
+          "daemon_compute-",
+          1036940
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83082080167,
+        "user_usec": 70669996689,
+        "system_usec": 12412083477,
+        "nice_usec": 77882137,
+        "nr_periods": 308500,
+        "nr_throttled": 130851,
+        "throttled_usec": 9549639445,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:57.206755+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.71,
+          "entangled",
+          1036951
+        ],
+        [
+          0.69,
+          "entangled",
+          1036944
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83083820630,
+        "user_usec": 70671197814,
+        "system_usec": 12412622815,
+        "nice_usec": 77882137,
+        "nr_periods": 308511,
+        "nr_throttled": 130851,
+        "throttled_usec": 9549639445,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:58.267613+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83086629518,
+        "user_usec": 70673246239,
+        "system_usec": 12413383279,
+        "nice_usec": 77882137,
+        "nr_periods": 308522,
+        "nr_throttled": 130851,
+        "throttled_usec": 9549639445,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:45:59.362596+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.43,
+          "python",
+          1036980
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83088901917,
+        "user_usec": 70675295914,
+        "system_usec": 12413606003,
+        "nice_usec": 77882137,
+        "nr_periods": 308533,
+        "nr_throttled": 130852,
+        "throttled_usec": 9549682888,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:00.417458+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.47,
+          "python",
+          1036980
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83090574097,
+        "user_usec": 70676784289,
+        "system_usec": 12413789807,
+        "nice_usec": 77882137,
+        "nr_periods": 308543,
+        "nr_throttled": 130852,
+        "throttled_usec": 9549682888,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:01.496321+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.61,
+          "entangled",
+          1037020
+        ],
+        [
+          0.23,
+          "python",
+          1036980
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83093851117,
+        "user_usec": 70679767107,
+        "system_usec": 12414084010,
+        "nice_usec": 77882137,
+        "nr_periods": 308554,
+        "nr_throttled": 130852,
+        "throttled_usec": 9549682888,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:02.551631+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.35,
+          "entangled",
+          1037020
+        ],
+        [
+          0.83,
+          "entangled",
+          1037051
+        ],
+        [
+          0.4,
+          "entangled",
+          1037082
+        ],
+        [
+          0.27,
+          "entangled",
+          1037098
+        ],
+        [
+          0.19,
+          "python",
+          1036980
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83097084879,
+        "user_usec": 70682764801,
+        "system_usec": 12414320078,
+        "nice_usec": 77882137,
+        "nr_periods": 308564,
+        "nr_throttled": 130853,
+        "throttled_usec": 9549684226,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:03.647626+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.65,
+          "entangled",
+          1037020
+        ],
+        [
+          0.29,
+          "python",
+          1036980
+        ],
+        [
+          0.27,
+          "entangled",
+          1037051
+        ],
+        [
+          0.22,
+          "entangled",
+          1037098
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83099992071,
+        "user_usec": 70685474381,
+        "system_usec": 12414517689,
+        "nice_usec": 77882137,
+        "nr_periods": 308575,
+        "nr_throttled": 130854,
+        "throttled_usec": 9549686274,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:04.759513+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.87,
+          "entangled",
+          1037020
+        ],
+        [
+          0.67,
+          "entangled",
+          1037051
+        ],
+        [
+          0.31,
+          "entangled",
+          1037082
+        ],
+        [
+          0.22,
+          "python",
+          1036980
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83103625062,
+        "user_usec": 70688837175,
+        "system_usec": 12414787886,
+        "nice_usec": 77882137,
+        "nr_periods": 308587,
+        "nr_throttled": 130856,
+        "throttled_usec": 9549742687,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:05.846475+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.87,
+          "entangled",
+          1037051
+        ],
+        [
+          0.69,
+          "entangled",
+          1037020
+        ],
+        [
+          0.42,
+          "entangled",
+          1037082
+        ],
+        [
+          0.34,
+          "python",
+          1036980
+        ],
+        [
+          0.18,
+          "entangled",
+          1037098
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83106493756,
+        "user_usec": 70691394450,
+        "system_usec": 12415099306,
+        "nice_usec": 77882137,
+        "nr_periods": 308597,
+        "nr_throttled": 130856,
+        "throttled_usec": 9549742687,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:06.965206+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.97,
+          "entangled",
+          1037020
+        ],
+        [
+          0.19,
+          "python",
+          1036980
+        ],
+        [
+          0.18,
+          "entangled",
+          1037098
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83110309773,
+        "user_usec": 70694984208,
+        "system_usec": 12415325564,
+        "nice_usec": 77882137,
+        "nr_periods": 308609,
+        "nr_throttled": 130857,
+        "throttled_usec": 9549744072,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:08.093451+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83111841408,
+        "user_usec": 70695846723,
+        "system_usec": 12415994685,
+        "nice_usec": 77882137,
+        "nr_periods": 308620,
+        "nr_throttled": 130857,
+        "throttled_usec": 9549744072,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:09.170467+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.72,
+          "entangled",
+          1037154
+        ],
+        [
+          0.69,
+          "entangled",
+          1037147
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83113587139,
+        "user_usec": 70697010260,
+        "system_usec": 12416576879,
+        "nice_usec": 77882137,
+        "nr_periods": 308631,
+        "nr_throttled": 130857,
+        "throttled_usec": 9549744072,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:10.270525+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.79,
+          "entangled",
+          1037147
+        ],
+        [
+          0.75,
+          "entangled",
+          1037154
+        ],
+        [
+          0.16,
+          "daemon_compute-",
+          1037143
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83115859970,
+        "user_usec": 70698463855,
+        "system_usec": 12417396115,
+        "nice_usec": 77882137,
+        "nr_periods": 308642,
+        "nr_throttled": 130857,
+        "throttled_usec": 9549744072,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:11.338030+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.18,
+          "dockerd",
+          202
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83118633111,
+        "user_usec": 70700649588,
+        "system_usec": 12417983523,
+        "nice_usec": 77882137,
+        "nr_periods": 308652,
+        "nr_throttled": 130857,
+        "throttled_usec": 9549744072,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:12.407912+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.22,
+          "python",
+          1037197
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83121189778,
+        "user_usec": 70702859665,
+        "system_usec": 12418330112,
+        "nice_usec": 77882137,
+        "nr_periods": 308663,
+        "nr_throttled": 130857,
+        "throttled_usec": 9549744072,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:13.471347+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.55,
+          "python",
+          1037197
+        ],
+        [
+          0.5,
+          "entangled",
+          1037237
+        ],
+        [
+          0.33,
+          "entangled",
+          1037299
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83122831586,
+        "user_usec": 70704189949,
+        "system_usec": 12418641636,
+        "nice_usec": 77882137,
+        "nr_periods": 308674,
+        "nr_throttled": 130858,
+        "throttled_usec": 9549766828,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:14.539013+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.99,
+          "entangled",
+          1037237
+        ],
+        [
+          0.21,
+          "python",
+          1037197
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83126442127,
+        "user_usec": 70707513416,
+        "system_usec": 12418928710,
+        "nice_usec": 77882137,
+        "nr_periods": 308684,
+        "nr_throttled": 130858,
+        "throttled_usec": 9549766828,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:15.604974+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.89,
+          "entangled",
+          1037237
+        ],
+        [
+          0.46,
+          "entangled",
+          1037299
+        ],
+        [
+          0.45,
+          "entangled",
+          1037268
+        ],
+        [
+          0.26,
+          "entangled",
+          1037315
+        ],
+        [
+          0.17,
+          "python",
+          1037197
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83129938800,
+        "user_usec": 70710797675,
+        "system_usec": 12419141124,
+        "nice_usec": 77882137,
+        "nr_periods": 308695,
+        "nr_throttled": 130859,
+        "throttled_usec": 9549776224,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:16.699783+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.89,
+          "entangled",
+          1037237
+        ],
+        [
+          0.31,
+          "python",
+          1037197
+        ],
+        [
+          0.22,
+          "entangled",
+          1037315
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83133041901,
+        "user_usec": 70713594690,
+        "system_usec": 12419447210,
+        "nice_usec": 77882137,
+        "nr_periods": 308706,
+        "nr_throttled": 130861,
+        "throttled_usec": 9549779122,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:17.757515+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.26,
+          "entangled",
+          1037237
+        ],
+        [
+          0.32,
+          "entangled",
+          1037299
+        ],
+        [
+          0.29,
+          "entangled",
+          1037268
+        ],
+        [
+          0.18,
+          "python",
+          1037197
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83136473802,
+        "user_usec": 70716843789,
+        "system_usec": 12419630012,
+        "nice_usec": 77882137,
+        "nr_periods": 308717,
+        "nr_throttled": 130861,
+        "throttled_usec": 9549779122,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:18.830809+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.35,
+          "entangled",
+          1037237
+        ],
+        [
+          0.43,
+          "entangled",
+          1037268
+        ],
+        [
+          0.38,
+          "entangled",
+          1037299
+        ],
+        [
+          0.31,
+          "python",
+          1037197
+        ],
+        [
+          0.17,
+          "entangled",
+          1037315
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83139380486,
+        "user_usec": 70719523132,
+        "system_usec": 12419857353,
+        "nice_usec": 77882137,
+        "nr_periods": 308727,
+        "nr_throttled": 130861,
+        "throttled_usec": 9549779122,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:19.903848+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.91,
+          "entangled",
+          1037237
+        ],
+        [
+          0.18,
+          "python",
+          1037197
+        ],
+        [
+          0.17,
+          "entangled",
+          1037315
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83142937340,
+        "user_usec": 70722896484,
+        "system_usec": 12420040856,
+        "nice_usec": 77882137,
+        "nr_periods": 308738,
+        "nr_throttled": 130863,
+        "throttled_usec": 9549805870,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:20.971966+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83144348304,
+        "user_usec": 70723773895,
+        "system_usec": 12420574409,
+        "nice_usec": 77882137,
+        "nr_periods": 308749,
+        "nr_throttled": 130863,
+        "throttled_usec": 9549805870,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:22.082344+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.71,
+          "entangled",
+          1037379
+        ],
+        [
+          0.69,
+          "entangled",
+          1037372
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83146150160,
+        "user_usec": 70724998836,
+        "system_usec": 12421151323,
+        "nice_usec": 77882137,
+        "nr_periods": 308760,
+        "nr_throttled": 130863,
+        "throttled_usec": 9549805870,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:23.172324+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.94,
+          "entangled",
+          1037372
+        ],
+        [
+          0.88,
+          "entangled",
+          1037379
+        ],
+        [
+          0.17,
+          "daemon_compute-",
+          1037368
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83148432634,
+        "user_usec": 70726563126,
+        "system_usec": 12421869508,
+        "nice_usec": 77882137,
+        "nr_periods": 308771,
+        "nr_throttled": 130863,
+        "throttled_usec": 9549805870,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:24.291705+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83150627781,
+        "user_usec": 70728281699,
+        "system_usec": 12422346081,
+        "nice_usec": 77882137,
+        "nr_periods": 308782,
+        "nr_throttled": 130863,
+        "throttled_usec": 9549805870,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:25.362113+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83153271928,
+        "user_usec": 70730478427,
+        "system_usec": 12422793500,
+        "nice_usec": 77882137,
+        "nr_periods": 308793,
+        "nr_throttled": 130863,
+        "throttled_usec": 9549805870,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:26.491366+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.01,
+          "entangled",
+          1037429
+        ],
+        [
+          0.5,
+          "python",
+          1037389
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83155249156,
+        "user_usec": 70732164836,
+        "system_usec": 12423084320,
+        "nice_usec": 77882137,
+        "nr_periods": 308804,
+        "nr_throttled": 130864,
+        "throttled_usec": 9549821756,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:27.569317+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.67,
+          "entangled",
+          1037429
+        ],
+        [
+          0.2,
+          "python",
+          1037389
+        ],
+        [
+          0.19,
+          "entangled",
+          1037507
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83158628365,
+        "user_usec": 70735337138,
+        "system_usec": 12423291226,
+        "nice_usec": 77882137,
+        "nr_periods": 308815,
+        "nr_throttled": 130866,
+        "throttled_usec": 9549854515,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:28.645312+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.82,
+          "entangled",
+          1037491
+        ],
+        [
+          0.71,
+          "entangled",
+          1037429
+        ],
+        [
+          0.43,
+          "entangled",
+          1037460
+        ],
+        [
+          0.32,
+          "python",
+          1037389
+        ],
+        [
+          0.23,
+          "entangled",
+          1037507
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83161400420,
+        "user_usec": 70737895638,
+        "system_usec": 12423504782,
+        "nice_usec": 77882137,
+        "nr_periods": 308825,
+        "nr_throttled": 130866,
+        "throttled_usec": 9549854515,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:29.725742+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.93,
+          "entangled",
+          1037429
+        ],
+        [
+          0.56,
+          "entangled",
+          1037491
+        ],
+        [
+          0.29,
+          "entangled",
+          1037507
+        ],
+        [
+          0.27,
+          "entangled",
+          1037460
+        ],
+        [
+          0.18,
+          "python",
+          1037389
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83164948372,
+        "user_usec": 70741107417,
+        "system_usec": 12423840954,
+        "nice_usec": 77882137,
+        "nr_periods": 308836,
+        "nr_throttled": 130866,
+        "throttled_usec": 9549854515,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:30.817873+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.95,
+          "entangled",
+          1037429
+        ],
+        [
+          0.35,
+          "entangled",
+          1037491
+        ],
+        [
+          0.26,
+          "python",
+          1037389
+        ],
+        [
+          0.16,
+          "entangled",
+          1037460
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83168071876,
+        "user_usec": 70744002899,
+        "system_usec": 12424068977,
+        "nice_usec": 77882137,
+        "nr_periods": 308847,
+        "nr_throttled": 130869,
+        "throttled_usec": 9549862591,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:31.887375+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.17,
+          "entangled",
+          1037491
+        ],
+        [
+          0.57,
+          "entangled",
+          1037460
+        ],
+        [
+          0.53,
+          "entangled",
+          1037429
+        ],
+        [
+          0.29,
+          "python",
+          1037389
+        ],
+        [
+          0.22,
+          "entangled",
+          1037507
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83171119707,
+        "user_usec": 70746719718,
+        "system_usec": 12424399989,
+        "nice_usec": 77882137,
+        "nr_periods": 308858,
+        "nr_throttled": 130869,
+        "throttled_usec": 9549862591,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:33.006157+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.52,
+          "entangled",
+          1037429
+        ],
+        [
+          0.21,
+          "python",
+          1037389
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83174410484,
+        "user_usec": 70749705638,
+        "system_usec": 12424704846,
+        "nice_usec": 77882137,
+        "nr_periods": 308869,
+        "nr_throttled": 130869,
+        "throttled_usec": 9549862591,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:34.084780+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83176238215,
+        "user_usec": 70751166744,
+        "system_usec": 12425071471,
+        "nice_usec": 77882137,
+        "nr_periods": 308880,
+        "nr_throttled": 130869,
+        "throttled_usec": 9549862591,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:35.173745+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.82,
+          "entangled",
+          1037557
+        ],
+        [
+          0.49,
+          "entangled",
+          1037564
+        ],
+        [
+          0.31,
+          "daemon_compute-",
+          1037553
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83178103213,
+        "user_usec": 70752170431,
+        "system_usec": 12425932782,
+        "nice_usec": 77882137,
+        "nr_periods": 308891,
+        "nr_throttled": 130869,
+        "throttled_usec": 9549862591,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:36.250283+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.73,
+          "entangled",
+          1037564
+        ],
+        [
+          0.72,
+          "entangled",
+          1037557
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83179864088,
+        "user_usec": 70753265776,
+        "system_usec": 12426598311,
+        "nice_usec": 77882137,
+        "nr_periods": 308901,
+        "nr_throttled": 130869,
+        "throttled_usec": 9549862591,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:37.309127+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83182849190,
+        "user_usec": 70755522991,
+        "system_usec": 12427326198,
+        "nice_usec": 77882137,
+        "nr_periods": 308912,
+        "nr_throttled": 130869,
+        "throttled_usec": 9549862591,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:38.363316+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83184388325,
+        "user_usec": 70756853460,
+        "system_usec": 12427534865,
+        "nice_usec": 77882137,
+        "nr_periods": 308923,
+        "nr_throttled": 130869,
+        "throttled_usec": 9549862591,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:39.428347+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.79,
+          "entangled",
+          1037645
+        ],
+        [
+          0.17,
+          "python",
+          1037574
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83186878480,
+        "user_usec": 70758928679,
+        "system_usec": 12427949800,
+        "nice_usec": 77882137,
+        "nr_periods": 308933,
+        "nr_throttled": 130869,
+        "throttled_usec": 9549862591,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:40.556093+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.6,
+          "entangled",
+          1037614
+        ],
+        [
+          0.52,
+          "python",
+          1037574
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83190279530,
+        "user_usec": 70761512471,
+        "system_usec": 12428767059,
+        "nice_usec": 77882137,
+        "nr_periods": 308945,
+        "nr_throttled": 130874,
+        "throttled_usec": 9550159062,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:41.665747+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.87,
+          "entangled",
+          1037614
+        ],
+        [
+          0.36,
+          "python",
+          1037574
+        ],
+        [
+          0.23,
+          "entangled",
+          1037692
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83193298148,
+        "user_usec": 70764274701,
+        "system_usec": 12429023446,
+        "nice_usec": 77882137,
+        "nr_periods": 308956,
+        "nr_throttled": 130874,
+        "throttled_usec": 9550159062,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:42.789154+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.92,
+          "entangled",
+          1037614
+        ],
+        [
+          0.79,
+          "entangled",
+          1037645
+        ],
+        [
+          0.43,
+          "entangled",
+          1037676
+        ],
+        [
+          0.3,
+          "entangled",
+          1037692
+        ],
+        [
+          0.18,
+          "python",
+          1037574
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83196369778,
+        "user_usec": 70766938063,
+        "system_usec": 12429431715,
+        "nice_usec": 77882137,
+        "nr_periods": 308967,
+        "nr_throttled": 130875,
+        "throttled_usec": 9550159747,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:43.880881+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.47,
+          "entangled",
+          1037614
+        ],
+        [
+          0.72,
+          "entangled",
+          1037645
+        ],
+        [
+          0.4,
+          "entangled",
+          1037676
+        ],
+        [
+          0.27,
+          "entangled",
+          1037692
+        ],
+        [
+          0.19,
+          "python",
+          1037574
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83199768842,
+        "user_usec": 70770159732,
+        "system_usec": 12429609110,
+        "nice_usec": 77882137,
+        "nr_periods": 308978,
+        "nr_throttled": 130876,
+        "throttled_usec": 9550163845,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:44.998624+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.82,
+          "entangled",
+          1037614
+        ],
+        [
+          0.36,
+          "python",
+          1037574
+        ],
+        [
+          0.27,
+          "entangled",
+          1037645
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83202826054,
+        "user_usec": 70772984984,
+        "system_usec": 12429841069,
+        "nice_usec": 77882137,
+        "nr_periods": 308989,
+        "nr_throttled": 130878,
+        "throttled_usec": 9550164218,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:46.077863+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.84,
+          "entangled",
+          1037614
+        ],
+        [
+          0.61,
+          "entangled",
+          1037645
+        ],
+        [
+          0.34,
+          "entangled",
+          1037676
+        ],
+        [
+          0.18,
+          "python",
+          1037574
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83206206941,
+        "user_usec": 70776154979,
+        "system_usec": 12430051961,
+        "nice_usec": 77882137,
+        "nr_periods": 309000,
+        "nr_throttled": 130878,
+        "throttled_usec": 9550164218,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:47.145075+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.04,
+          "entangled",
+          1037614
+        ],
+        [
+          0.28,
+          "python",
+          1037574
+        ],
+        [
+          0.18,
+          "entangled",
+          1037692
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83208970922,
+        "user_usec": 70778651225,
+        "system_usec": 12430319697,
+        "nice_usec": 77882137,
+        "nr_periods": 309010,
+        "nr_throttled": 130878,
+        "throttled_usec": 9550164218,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:48.268206+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83209461969,
+        "user_usec": 70778972233,
+        "system_usec": 12430489735,
+        "nice_usec": 77882137,
+        "nr_periods": 309020,
+        "nr_throttled": 130878,
+        "throttled_usec": 9550164218,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:49.357193+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.82,
+          "entangled",
+          1037837
+        ],
+        [
+          0.3,
+          "daemon_compute-",
+          1037833
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83211235078,
+        "user_usec": 70779903350,
+        "system_usec": 12431331728,
+        "nice_usec": 77882137,
+        "nr_periods": 309031,
+        "nr_throttled": 130878,
+        "throttled_usec": 9550164218,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:50.443987+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.72,
+          "entangled",
+          1037837
+        ],
+        [
+          0.69,
+          "entangled",
+          1037844
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83212962364,
+        "user_usec": 70781039147,
+        "system_usec": 12431923216,
+        "nice_usec": 77882137,
+        "nr_periods": 309041,
+        "nr_throttled": 130878,
+        "throttled_usec": 9550164218,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:51.525147+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.27,
+          "entangled",
+          1037837
+        ],
+        [
+          1.11,
+          "entangled",
+          1037844
+        ],
+        [
+          0.25,
+          "daemon_compute-",
+          1037833
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83215879915,
+        "user_usec": 70783217378,
+        "system_usec": 12432662536,
+        "nice_usec": 77882137,
+        "nr_periods": 309052,
+        "nr_throttled": 130878,
+        "throttled_usec": 9550164218,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:52.673478+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83217867064,
+        "user_usec": 70784875524,
+        "system_usec": 12432991540,
+        "nice_usec": 77882137,
+        "nr_periods": 309064,
+        "nr_throttled": 130879,
+        "throttled_usec": 9550217384,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:53.762148+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.28,
+          "python",
+          1037854
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83220014315,
+        "user_usec": 70786779900,
+        "system_usec": 12433234415,
+        "nice_usec": 77882137,
+        "nr_periods": 309075,
+        "nr_throttled": 130880,
+        "throttled_usec": 9550218095,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:54.840313+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.74,
+          "entangled",
+          1037894
+        ],
+        [
+          0.51,
+          "python",
+          1037854
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83222529732,
+        "user_usec": 70788997741,
+        "system_usec": 12433531990,
+        "nice_usec": 77882137,
+        "nr_periods": 309085,
+        "nr_throttled": 130880,
+        "throttled_usec": 9550218095,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:55.982477+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.08,
+          "entangled",
+          1037894
+        ],
+        [
+          0.28,
+          "entangled",
+          1037972
+        ],
+        [
+          0.26,
+          "entangled",
+          1037925
+        ],
+        [
+          0.25,
+          "entangled",
+          1037956
+        ],
+        [
+          0.2,
+          "python",
+          1037854
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83226142322,
+        "user_usec": 70792285644,
+        "system_usec": 12433856678,
+        "nice_usec": 77882137,
+        "nr_periods": 309097,
+        "nr_throttled": 130880,
+        "throttled_usec": 9550218095,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:57.074239+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.93,
+          "entangled",
+          1037894
+        ],
+        [
+          0.26,
+          "entangled",
+          1037956
+        ],
+        [
+          0.25,
+          "entangled",
+          1037972
+        ],
+        [
+          0.25,
+          "entangled",
+          1037925
+        ],
+        [
+          0.23,
+          "python",
+          1037854
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83229413715,
+        "user_usec": 70795222456,
+        "system_usec": 12434191259,
+        "nice_usec": 77882137,
+        "nr_periods": 309108,
+        "nr_throttled": 130880,
+        "throttled_usec": 9550218095,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:58.136865+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.35,
+          "entangled",
+          1037894
+        ],
+        [
+          0.46,
+          "entangled",
+          1037925
+        ],
+        [
+          0.41,
+          "entangled",
+          1037956
+        ],
+        [
+          0.29,
+          "python",
+          1037854
+        ],
+        [
+          0.21,
+          "entangled",
+          1037972
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83232374820,
+        "user_usec": 70797979993,
+        "system_usec": 12434394827,
+        "nice_usec": 77882137,
+        "nr_periods": 309118,
+        "nr_throttled": 130880,
+        "throttled_usec": 9550218095,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:46:59.236384+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.14,
+          "entangled",
+          1037894
+        ],
+        [
+          0.27,
+          "entangled",
+          1037956
+        ],
+        [
+          0.27,
+          "entangled",
+          1037925
+        ],
+        [
+          0.17,
+          "python",
+          1037854
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83235762852,
+        "user_usec": 70801184092,
+        "system_usec": 12434578760,
+        "nice_usec": 77882137,
+        "nr_periods": 309129,
+        "nr_throttled": 130880,
+        "throttled_usec": 9550218095,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:00.336231+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.09,
+          "entangled",
+          1037894
+        ],
+        [
+          0.32,
+          "python",
+          1037854
+        ],
+        [
+          0.15,
+          "entangled",
+          1037956
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83238890073,
+        "user_usec": 70804089523,
+        "system_usec": 12434800549,
+        "nice_usec": 77882137,
+        "nr_periods": 309140,
+        "nr_throttled": 130880,
+        "throttled_usec": 9550218095,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:01.414375+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83241288072,
+        "user_usec": 70806159001,
+        "system_usec": 12435129070,
+        "nice_usec": 77882137,
+        "nr_periods": 309151,
+        "nr_throttled": 130881,
+        "throttled_usec": 9550256963,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:02.595032+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.75,
+          "entangled",
+          1038022
+        ],
+        [
+          0.42,
+          "entangled",
+          1038029
+        ],
+        [
+          0.31,
+          "daemon_compute-",
+          1038018
+        ],
+        [
+          0.16,
+          "python3",
+          1034902
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83243202684,
+        "user_usec": 70807292374,
+        "system_usec": 12435910309,
+        "nice_usec": 77882137,
+        "nr_periods": 309163,
+        "nr_throttled": 130881,
+        "throttled_usec": 9550256963,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:03.694962+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.64,
+          "entangled",
+          1038022
+        ],
+        [
+          0.54,
+          "entangled",
+          1038029
+        ],
+        [
+          0.15,
+          "daemon_compute-",
+          1038018
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83244766401,
+        "user_usec": 70808312369,
+        "system_usec": 12436454032,
+        "nice_usec": 77882137,
+        "nr_periods": 309174,
+        "nr_throttled": 130881,
+        "throttled_usec": 9550256963,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:04.773286+00:00",
+      "processes_above_0.15_core": [
+        [
+          0.79,
+          "entangled",
+          1038029
+        ],
+        [
+          0.79,
+          "entangled",
+          1038022
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83246933154,
+        "user_usec": 70809679553,
+        "system_usec": 12437253600,
+        "nice_usec": 77882137,
+        "nr_periods": 309185,
+        "nr_throttled": 130881,
+        "throttled_usec": 9550256963,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:05.828520+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83249224099,
+        "user_usec": 70811529516,
+        "system_usec": 12437694583,
+        "nice_usec": 77882137,
+        "nr_periods": 309195,
+        "nr_throttled": 130881,
+        "throttled_usec": 9550256963,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:06.928199+00:00",
+      "processes_above_0.15_core": [],
+      "cgroup": {
+        "usage_usec": 83252111207,
+        "user_usec": 70813997686,
+        "system_usec": 12438113521,
+        "nice_usec": 77882137,
+        "nr_periods": 309206,
+        "nr_throttled": 130882,
+        "throttled_usec": 9550258399,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:08.013897+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.11,
+          "entangled",
+          1038096
+        ],
+        [
+          0.53,
+          "python",
+          1038056
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83254127131,
+        "user_usec": 70815822715,
+        "system_usec": 12438304415,
+        "nice_usec": 77882137,
+        "nr_periods": 309217,
+        "nr_throttled": 130882,
+        "throttled_usec": 9550258399,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:09.080868+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.39,
+          "entangled",
+          1038096
+        ],
+        [
+          0.28,
+          "python",
+          1038056
+        ],
+        [
+          0.21,
+          "entangled",
+          1038174
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83257359259,
+        "user_usec": 70818701651,
+        "system_usec": 12438657608,
+        "nice_usec": 77882137,
+        "nr_periods": 309228,
+        "nr_throttled": 130883,
+        "throttled_usec": 9550263752,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:10.189928+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.24,
+          "entangled",
+          1038096
+        ],
+        [
+          0.54,
+          "entangled",
+          1038158
+        ],
+        [
+          0.52,
+          "entangled",
+          1038127
+        ],
+        [
+          0.27,
+          "python",
+          1038056
+        ],
+        [
+          0.23,
+          "entangled",
+          1038174
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83260579299,
+        "user_usec": 70821619844,
+        "system_usec": 12438959454,
+        "nice_usec": 77882137,
+        "nr_periods": 309239,
+        "nr_throttled": 130883,
+        "throttled_usec": 9550263752,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:11.293848+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.17,
+          "entangled",
+          1038096
+        ],
+        [
+          0.24,
+          "entangled",
+          1038174
+        ],
+        [
+          0.24,
+          "entangled",
+          1038127
+        ],
+        [
+          0.23,
+          "entangled",
+          1038158
+        ],
+        [
+          0.17,
+          "python",
+          1038056
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83264028561,
+        "user_usec": 70824889121,
+        "system_usec": 12439139440,
+        "nice_usec": 77882137,
+        "nr_periods": 309250,
+        "nr_throttled": 130884,
+        "throttled_usec": 9550269094,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:12.348467+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.01,
+          "entangled",
+          1038096
+        ],
+        [
+          0.29,
+          "python",
+          1038056
+        ],
+        [
+          0.22,
+          "entangled",
+          1038158
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83266974379,
+        "user_usec": 70827641931,
+        "system_usec": 12439332447,
+        "nice_usec": 77882137,
+        "nr_periods": 309260,
+        "nr_throttled": 130884,
+        "throttled_usec": 9550269094,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:13.426409+00:00",
+      "processes_above_0.15_core": [
+        [
+          1.51,
+          "entangled",
+          1038096
+        ],
+        [
+          0.46,
+          "entangled",
+          1038158
+        ],
+        [
+          0.45,
+          "entangled",
+          1038127
+        ],
+        [
+          0.21,
+          "python",
+          1038056
+        ],
+        [
+          0.17,
+          "entangled",
+          1038174
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83270075889,
+        "user_usec": 70830484538,
+        "system_usec": 12439591351,
+        "nice_usec": 77882137,
+        "nr_periods": 309271,
+        "nr_throttled": 130884,
+        "throttled_usec": 9550269094,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    },
+    {
+      "utc": "2026-11-27T08:47:14.554589+00:00",
+      "processes_above_0.15_core": [
+        [
+          2.86,
+          "entangled",
+          1038096
+        ],
+        [
+          0.2,
+          "python",
+          1038056
+        ],
+        [
+          0.16,
+          "entangled",
+          1038174
+        ]
+      ],
+      "cgroup": {
+        "usage_usec": 83273818383,
+        "user_usec": 70833956610,
+        "system_usec": 12439861773,
+        "nice_usec": 77882137,
+        "nr_periods": 309283,
+        "nr_throttled": 130887,
+        "throttled_usec": 9550345149,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      }
+    }
+  ],
+  "pairs": [
+    {
+      "pair": 1,
+      "order": "AB",
+      "arms": [
+        {
+          "label": "A",
+          "start_utc": "2026-11-27T08:43:42.526120+00:00",
+          "metrics": {
+            "local / 1": [
+              0.363,
+              4222.6
+            ],
+            "local / 4": [
+              0.842,
+              7778.5
+            ],
+            "remote / 1": [
+              2.402,
+              511.0
+            ],
+            "remote / 4": [
+              4.467,
+              1284.9
+            ],
+            "image local": [
+              118.61106900323648,
+              43.910194073628574
+            ],
+            "image one_remote": [
+              111.79974799597403,
+              38.84614568364313
+            ],
+            "image three_remote": [
+              133.82878699485445,
+              35.424605431273605
+            ]
+          },
+          "end_utc": "2026-11-27T08:43:56.006017+00:00"
+        },
+        {
+          "label": "B",
+          "start_utc": "2026-11-27T08:43:56.006819+00:00",
+          "metrics": {
+            "local / 1": [
+              0.66,
+              3008.8
+            ],
+            "local / 4": [
+              0.776,
+              7516.3
+            ],
+            "remote / 1": [
+              2.969,
+              494.7
+            ],
+            "remote / 4": [
+              4.146,
+              1343.7
+            ],
+            "image local": [
+              140.27118800004246,
+              39.185470819265305
+            ],
+            "image one_remote": [
+              118.28129999776138,
+              41.587296084754456
+            ],
+            "image three_remote": [
+              138.62098300160142,
+              37.19614544356948
+            ]
+          },
+          "end_utc": "2026-11-27T08:44:09.132791+00:00"
+        }
+      ]
+    },
+    {
+      "pair": 2,
+      "order": "CD",
+      "arms": [
+        {
+          "label": "C",
+          "start_utc": "2026-11-27T08:44:09.132858+00:00",
+          "metrics": {
+            "local / 1": [
+              1.014,
+              2572.3
+            ],
+            "local / 4": [
+              0.913,
+              6363.4
+            ],
+            "remote / 1": [
+              2.579,
+              507.2
+            ],
+            "remote / 4": [
+              6.623,
+              1215.1
+            ],
+            "image local": [
+              128.32397999591194,
+              41.00576276340747
+            ],
+            "image one_remote": [
+              151.06912999908673,
+              33.920095967671585
+            ],
+            "image three_remote": [
+              133.10311299574096,
+              36.37287016800375
+            ]
+          },
+          "end_utc": "2026-11-27T08:44:22.706760+00:00"
+        },
+        {
+          "label": "D",
+          "start_utc": "2026-11-27T08:44:22.706935+00:00",
+          "metrics": {
+            "local / 1": [
+              0.574,
+              2822.9
+            ],
+            "local / 4": [
+              0.987,
+              6077.0
+            ],
+            "remote / 1": [
+              2.54,
+              521.4
+            ],
+            "remote / 4": [
+              3.998,
+              1356.7
+            ],
+            "image local": [
+              111.7685610006447,
+              45.1703711212808
+            ],
+            "image one_remote": [
+              129.17571200523525,
+              40.602983402336605
+            ],
+            "image three_remote": [
+              123.4276699979091,
+              37.565303699896226
+            ]
+          },
+          "end_utc": "2026-11-27T08:44:36.044859+00:00"
+        }
+      ]
+    },
+    {
+      "pair": 3,
+      "order": "BA",
+      "arms": [
+        {
+          "label": "B",
+          "start_utc": "2026-11-27T08:44:36.045048+00:00",
+          "metrics": {
+            "local / 1": [
+              0.35,
+              4026.9
+            ],
+            "local / 4": [
+              0.963,
+              6606.3
+            ],
+            "remote / 1": [
+              2.907,
+              498.9
+            ],
+            "remote / 4": [
+              4.235,
+              1350.8
+            ],
+            "image local": [
+              134.85857200430473,
+              41.38304559284825
+            ],
+            "image one_remote": [
+              121.48486499791034,
+              42.80884225180802
+            ],
+            "image three_remote": [
+              166.7661780011258,
+              36.033221928221266
+            ]
+          },
+          "end_utc": "2026-11-27T08:44:48.972343+00:00"
+        },
+        {
+          "label": "A",
+          "start_utc": "2026-11-27T08:44:48.972430+00:00",
+          "metrics": {
+            "local / 1": [
+              0.357,
+              4236.3
+            ],
+            "local / 4": [
+              0.776,
+              8105.2
+            ],
+            "remote / 1": [
+              2.291,
+              540.5
+            ],
+            "remote / 4": [
+              3.831,
+              1427.8
+            ],
+            "image local": [
+              120.2920499999891,
+              45.304479856314636
+            ],
+            "image one_remote": [
+              118.58118799864314,
+              42.18977319608814
+            ],
+            "image three_remote": [
+              145.88819399796193,
+              38.45751071498323
+            ]
+          },
+          "end_utc": "2026-11-27T08:45:01.414548+00:00"
+        }
+      ]
+    },
+    {
+      "pair": 4,
+      "order": "DC",
+      "arms": [
+        {
+          "label": "D",
+          "start_utc": "2026-11-27T08:45:01.414600+00:00",
+          "metrics": {
+            "local / 1": [
+              0.488,
+              3023.7
+            ],
+            "local / 4": [
+              0.816,
+              8293.6
+            ],
+            "remote / 1": [
+              3.088,
+              494.8
+            ],
+            "remote / 4": [
+              3.756,
+              1389.5
+            ],
+            "image local": [
+              110.97861600137549,
+              46.14167717352113
+            ],
+            "image one_remote": [
+              137.849961000029,
+              38.082079588456374
+            ],
+            "image three_remote": [
+              124.47636599972611,
+              39.16131539540842
+            ]
+          },
+          "end_utc": "2026-11-27T08:45:14.517675+00:00"
+        },
+        {
+          "label": "C",
+          "start_utc": "2026-11-27T08:45:14.517804+00:00",
+          "metrics": {
+            "local / 1": [
+              0.559,
+              2209.3
+            ],
+            "local / 4": [
+              0.859,
+              7124.8
+            ],
+            "remote / 1": [
+              2.577,
+              521.0
+            ],
+            "remote / 4": [
+              4.37,
+              1353.4
+            ],
+            "image local": [
+              136.99887999973726,
+              45.31927300400056
+            ],
+            "image one_remote": [
+              156.18989300128305,
+              36.472363796097504
+            ],
+            "image three_remote": [
+              121.58781500329496,
+              39.14366723510469
+            ]
+          },
+          "end_utc": "2026-11-27T08:45:27.629945+00:00"
+        }
+      ]
+    },
+    {
+      "pair": 5,
+      "order": "BA",
+      "arms": [
+        {
+          "label": "B",
+          "start_utc": "2026-11-27T08:45:27.630014+00:00",
+          "metrics": {
+            "local / 1": [
+              0.408,
+              3668.8
+            ],
+            "local / 4": [
+              0.925,
+              7733.0
+            ],
+            "remote / 1": [
+              5.927,
+              364.0
+            ],
+            "remote / 4": [
+              6.769,
+              1150.6
+            ],
+            "image local": [
+              141.96110099874204,
+              44.375944339965066
+            ],
+            "image one_remote": [
+              124.16474900237517,
+              40.48316311054435
+            ],
+            "image three_remote": [
+              124.52928100537974,
+              40.15606924019302
+            ]
+          },
+          "end_utc": "2026-11-27T08:45:41.274625+00:00"
+        },
+        {
+          "label": "A",
+          "start_utc": "2026-11-27T08:45:41.274684+00:00",
+          "metrics": {
+            "local / 1": [
+              0.501,
+              3631.4
+            ],
+            "local / 4": [
+              0.801,
+              7478.9
+            ],
+            "remote / 1": [
+              3.041,
+              497.2
+            ],
+            "remote / 4": [
+              5.893,
+              1226.8
+            ],
+            "image local": [
+              122.94260600174312,
+              47.08464345509589
+            ],
+            "image one_remote": [
+              208.69224199850578,
+              33.6490977755009
+            ],
+            "image three_remote": [
+              203.10578700446058,
+              33.210168625938145
+            ]
+          },
+          "end_utc": "2026-11-27T08:45:54.649854+00:00"
+        }
+      ]
+    },
+    {
+      "pair": 6,
+      "order": "DC",
+      "arms": [
+        {
+          "label": "D",
+          "start_utc": "2026-11-27T08:45:54.650135+00:00",
+          "metrics": {
+            "local / 1": [
+              0.45,
+              3184.5
+            ],
+            "local / 4": [
+              0.727,
+              8185.9
+            ],
+            "remote / 1": [
+              2.896,
+              510.4
+            ],
+            "remote / 4": [
+              4.143,
+              1326.6
+            ],
+            "image local": [
+              111.45059900445631,
+              45.09496266337789
+            ],
+            "image one_remote": [
+              132.97395100380527,
+              40.38700293618022
+            ],
+            "image three_remote": [
+              152.35233500425238,
+              38.5754727893056
+            ]
+          },
+          "end_utc": "2026-11-27T08:46:07.330810+00:00"
+        },
+        {
+          "label": "C",
+          "start_utc": "2026-11-27T08:46:07.330866+00:00",
+          "metrics": {
+            "local / 1": [
+              0.425,
+              3134.1
+            ],
+            "local / 4": [
+              2.141,
+              4317.0
+            ],
+            "remote / 1": [
+              2.213,
+              551.6
+            ],
+            "remote / 4": [
+              8.109,
+              1101.4
+            ],
+            "image local": [
+              139.17019300424727,
+              46.67592653495177
+            ],
+            "image one_remote": [
+              120.66566800058354,
+              38.815534079361726
+            ],
+            "image three_remote": [
+              135.37658200220903,
+              38.526633035791384
+            ]
+          },
+          "end_utc": "2026-11-27T08:46:20.247793+00:00"
+        }
+      ]
+    },
+    {
+      "pair": 7,
+      "order": "AB",
+      "arms": [
+        {
+          "label": "A",
+          "start_utc": "2026-11-27T08:46:20.248448+00:00",
+          "metrics": {
+            "local / 1": [
+              0.339,
+              4386.8
+            ],
+            "local / 4": [
+              0.853,
+              7148.3
+            ],
+            "remote / 1": [
+              2.499,
+              522.6
+            ],
+            "remote / 4": [
+              4.027,
+              1347.1
+            ],
+            "image local": [
+              150.62259000114864,
+              38.25961061325485
+            ],
+            "image one_remote": [
+              154.0422700054478,
+              37.10214735482703
+            ],
+            "image three_remote": [
+              149.3156810029177,
+              37.56521579761783
+            ]
+          },
+          "end_utc": "2026-11-27T08:46:33.664138+00:00"
+        },
+        {
+          "label": "B",
+          "start_utc": "2026-11-27T08:46:33.664194+00:00",
+          "metrics": {
+            "local / 1": [
+              0.759,
+              2597.9
+            ],
+            "local / 4": [
+              0.917,
+              6338.5
+            ],
+            "remote / 1": [
+              2.914,
+              505.1
+            ],
+            "remote / 4": [
+              4.799,
+              1312.4
+            ],
+            "image local": [
+              142.33512999635423,
+              37.822216504428894
+            ],
+            "image one_remote": [
+              193.76619599643163,
+              36.597770098895744
+            ],
+            "image three_remote": [
+              134.9506560000009,
+              37.763034284696914
+            ]
+          },
+          "end_utc": "2026-11-27T08:46:47.371986+00:00"
+        }
+      ]
+    },
+    {
+      "pair": 8,
+      "order": "CD",
+      "arms": [
+        {
+          "label": "C",
+          "start_utc": "2026-11-27T08:46:47.372051+00:00",
+          "metrics": {
+            "local / 1": [
+              0.34,
+              4343.2
+            ],
+            "local / 4": [
+              0.931,
+              6954.4
+            ],
+            "remote / 1": [
+              2.829,
+              510.9
+            ],
+            "remote / 4": [
+              3.965,
+              1404.7
+            ],
+            "image local": [
+              125.397215000703,
+              45.97001233976834
+            ],
+            "image one_remote": [
+              126.18276799912564,
+              42.06417243857798
+            ],
+            "image three_remote": [
+              122.57793900062097,
+              38.49550593397675
+            ]
+          },
+          "end_utc": "2026-11-27T08:47:01.067044+00:00"
+        },
+        {
+          "label": "D",
+          "start_utc": "2026-11-27T08:47:01.067092+00:00",
+          "metrics": {
+            "local / 1": [
+              0.398,
+              3957.4
+            ],
+            "local / 4": [
+              2.772,
+              4197.0
+            ],
+            "remote / 1": [
+              5.859,
+              362.4
+            ],
+            "remote / 4": [
+              3.692,
+              1439.2
+            ],
+            "image local": [
+              119.87344099907205,
+              45.48293972990988
+            ],
+            "image one_remote": [
+              146.35378299863078,
+              35.79288764128251
+            ],
+            "image three_remote": [
+              172.3350090032909,
+              34.65947533392056
+            ]
+          },
+          "end_utc": "2026-11-27T08:47:14.964531+00:00"
+        }
+      ]
+    }
+  ],
+  "exit_code": 0,
+  "end_utc": "2026-11-27T08:47:14.965406+00:00",
+  "cpu_after": {
+    "usage_usec": 83274334856,
+    "user_usec": 70834443735,
+    "system_usec": 12439891121,
+    "nice_usec": 77882137,
+    "nr_periods": 309287,
+    "nr_throttled": 130887,
+    "throttled_usec": 9550345149,
+    "nr_bursts": 0,
+    "burst_usec": 0
+  },
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b"
+}

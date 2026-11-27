@@ -1,0 +1,266 @@
+{
+  "cli_sha256": "bbe332a3da4d23516930d50b3439ffa7fd2f6a0530fd14cd9329f27058baca02",
+  "input_manifest_sha256": "6f2dc20cda4c175bdc55e7ff33e7e7682dbf2ddaaabdf87597a19ef55c25dfda",
+  "photographs": 2,
+  "submission_host": {
+    "system": "Linux",
+    "node": "4195294301b2",
+    "release": "6.18.57",
+    "version": "#1 SMP Tue Oct 20 21:56:04 UTC 2026",
+    "machine": "x86_64",
+    "processor": ""
+  },
+  "plugin": "44a95cc7a896167c60eb6af540db3cb6/image-dehaze@0.1.0",
+  "jobs": 3,
+  "tile_edge": 1024,
+  "single_peer": "44a95cc7a896167c60eb6af540db3cb6",
+  "coordinator": "132a9e51ead2bb1b0a6dd0fa5744efc2",
+  "mesh_workers": [
+    "44a95cc7a896167c60eb6af540db3cb6",
+    "9e79c83adf064497ccef1afce215fa4d",
+    "c2172aff9956494d60585e5fb0ec4e60"
+  ],
+  "trials": [
+    {
+      "pair": 0,
+      "route": "single",
+      "warmup": true,
+      "wall_s": 11.060749092997867,
+      "exit_code": 0,
+      "worker_tiles": {
+        "44a95cc7a896167c60eb6af540db3cb6": 18
+      },
+      "photos": {
+        "canon_350d.cr2": {
+          "elapsed_ms": 6260.712149,
+          "worker_tiles": {
+            "44a95cc7a896167c60eb6af540db3cb6": 12
+          }
+        },
+        "nikon_d40.nef": {
+          "elapsed_ms": 4787.487202,
+          "worker_tiles": {
+            "44a95cc7a896167c60eb6af540db3cb6": 6
+          }
+        }
+      },
+      "p50_image_ms": 5524.0996755,
+      "p95_image_ms": 6260.712149
+    },
+    {
+      "pair": 0,
+      "route": "mesh",
+      "warmup": true,
+      "wall_s": 9.088956658997631,
+      "exit_code": 0,
+      "worker_tiles": {
+        "9e79c83adf064497ccef1afce215fa4d": 5,
+        "c2172aff9956494d60585e5fb0ec4e60": 7,
+        "44a95cc7a896167c60eb6af540db3cb6": 6
+      },
+      "photos": {
+        "canon_350d.cr2": {
+          "elapsed_ms": 5011.08827,
+          "worker_tiles": {
+            "9e79c83adf064497ccef1afce215fa4d": 3,
+            "c2172aff9956494d60585e5fb0ec4e60": 5,
+            "44a95cc7a896167c60eb6af540db3cb6": 4
+          }
+        },
+        "nikon_d40.nef": {
+          "elapsed_ms": 4056.9917010000004,
+          "worker_tiles": {
+            "c2172aff9956494d60585e5fb0ec4e60": 2,
+            "9e79c83adf064497ccef1afce215fa4d": 2,
+            "44a95cc7a896167c60eb6af540db3cb6": 2
+          }
+        }
+      },
+      "p50_image_ms": 4534.0399855000005,
+      "p95_image_ms": 5011.08827
+    },
+    {
+      "pair": 1,
+      "route": "mesh",
+      "warmup": false,
+      "wall_s": 8.644445277997875,
+      "exit_code": 0,
+      "worker_tiles": {
+        "9e79c83adf064497ccef1afce215fa4d": 6,
+        "44a95cc7a896167c60eb6af540db3cb6": 6,
+        "c2172aff9956494d60585e5fb0ec4e60": 6
+      },
+      "photos": {
+        "canon_350d.cr2": {
+          "elapsed_ms": 4955.304948,
+          "worker_tiles": {
+            "9e79c83adf064497ccef1afce215fa4d": 4,
+            "44a95cc7a896167c60eb6af540db3cb6": 4,
+            "c2172aff9956494d60585e5fb0ec4e60": 4
+          }
+        },
+        "nikon_d40.nef": {
+          "elapsed_ms": 3666.8338980000003,
+          "worker_tiles": {
+            "44a95cc7a896167c60eb6af540db3cb6": 2,
+            "c2172aff9956494d60585e5fb0ec4e60": 2,
+            "9e79c83adf064497ccef1afce215fa4d": 2
+          }
+        }
+      },
+      "p50_image_ms": 4311.069423,
+      "p95_image_ms": 4955.304948
+    },
+    {
+      "pair": 1,
+      "route": "single",
+      "warmup": false,
+      "wall_s": 12.600551777999499,
+      "exit_code": 0,
+      "worker_tiles": {
+        "44a95cc7a896167c60eb6af540db3cb6": 18
+      },
+      "photos": {
+        "canon_350d.cr2": {
+          "elapsed_ms": 7598.306981000001,
+          "worker_tiles": {
+            "44a95cc7a896167c60eb6af540db3cb6": 12
+          }
+        },
+        "nikon_d40.nef": {
+          "elapsed_ms": 4959.067515,
+          "worker_tiles": {
+            "44a95cc7a896167c60eb6af540db3cb6": 6
+          }
+        }
+      },
+      "p50_image_ms": 6278.687248,
+      "p95_image_ms": 7598.306981000001
+    },
+    {
+      "pair": 2,
+      "route": "single",
+      "warmup": false,
+      "wall_s": 10.030676761001814,
+      "exit_code": 0,
+      "worker_tiles": {
+        "44a95cc7a896167c60eb6af540db3cb6": 18
+      },
+      "photos": {
+        "canon_350d.cr2": {
+          "elapsed_ms": 5753.217103,
+          "worker_tiles": {
+            "44a95cc7a896167c60eb6af540db3cb6": 12
+          }
+        },
+        "nikon_d40.nef": {
+          "elapsed_ms": 4256.621133000001,
+          "worker_tiles": {
+            "44a95cc7a896167c60eb6af540db3cb6": 6
+          }
+        }
+      },
+      "p50_image_ms": 5004.919118,
+      "p95_image_ms": 5753.217103
+    },
+    {
+      "pair": 2,
+      "route": "mesh",
+      "warmup": false,
+      "wall_s": 8.514866680001433,
+      "exit_code": 0,
+      "worker_tiles": {
+        "44a95cc7a896167c60eb6af540db3cb6": 5,
+        "9e79c83adf064497ccef1afce215fa4d": 7,
+        "c2172aff9956494d60585e5fb0ec4e60": 6
+      },
+      "photos": {
+        "canon_350d.cr2": {
+          "elapsed_ms": 4834.0746819999995,
+          "worker_tiles": {
+            "44a95cc7a896167c60eb6af540db3cb6": 3,
+            "9e79c83adf064497ccef1afce215fa4d": 5,
+            "c2172aff9956494d60585e5fb0ec4e60": 4
+          }
+        },
+        "nikon_d40.nef": {
+          "elapsed_ms": 3658.8318170000002,
+          "worker_tiles": {
+            "c2172aff9956494d60585e5fb0ec4e60": 2,
+            "44a95cc7a896167c60eb6af540db3cb6": 2,
+            "9e79c83adf064497ccef1afce215fa4d": 2
+          }
+        }
+      },
+      "p50_image_ms": 4246.4532495,
+      "p95_image_ms": 4834.0746819999995
+    },
+    {
+      "pair": 3,
+      "route": "mesh",
+      "warmup": false,
+      "wall_s": 8.74890711199987,
+      "exit_code": 0,
+      "worker_tiles": {
+        "c2172aff9956494d60585e5fb0ec4e60": 7,
+        "44a95cc7a896167c60eb6af540db3cb6": 6,
+        "9e79c83adf064497ccef1afce215fa4d": 5
+      },
+      "photos": {
+        "canon_350d.cr2": {
+          "elapsed_ms": 5069.3782599999995,
+          "worker_tiles": {
+            "c2172aff9956494d60585e5fb0ec4e60": 5,
+            "44a95cc7a896167c60eb6af540db3cb6": 4,
+            "9e79c83adf064497ccef1afce215fa4d": 3
+          }
+        },
+        "nikon_d40.nef": {
+          "elapsed_ms": 3653.630655,
+          "worker_tiles": {
+            "9e79c83adf064497ccef1afce215fa4d": 2,
+            "c2172aff9956494d60585e5fb0ec4e60": 2,
+            "44a95cc7a896167c60eb6af540db3cb6": 2
+          }
+        }
+      },
+      "p50_image_ms": 4361.504457499999,
+      "p95_image_ms": 5069.3782599999995
+    },
+    {
+      "pair": 3,
+      "route": "single",
+      "warmup": false,
+      "wall_s": 8.048053738995804,
+      "exit_code": 0,
+      "worker_tiles": {
+        "44a95cc7a896167c60eb6af540db3cb6": 18
+      },
+      "photos": {
+        "canon_350d.cr2": {
+          "elapsed_ms": 4251.110688,
+          "worker_tiles": {
+            "44a95cc7a896167c60eb6af540db3cb6": 12
+          }
+        },
+        "nikon_d40.nef": {
+          "elapsed_ms": 3781.938044,
+          "worker_tiles": {
+            "44a95cc7a896167c60eb6af540db3cb6": 6
+          }
+        }
+      },
+      "p50_image_ms": 4016.5243659999996,
+      "p95_image_ms": 4251.110688
+    }
+  ],
+  "verified_output_sha256": {
+    "canon_350d.cr2": "2271485f205f0c831ff9b4048b5ca4ea465944a3fb9e4e88e0a2ecbb7ad83849",
+    "nikon_d40.nef": "133fde6d0931c43e8155a5b1970ef7d7bd57b3dfea5f7007265ff1289e12a57a"
+  },
+  "median_wall_s": {
+    "single": 10.030676761001814,
+    "mesh": 8.644445277997875
+  },
+  "median_wall_speedup": 1.160360953007849
+}

@@ -1,0 +1,33 @@
+Get:1 http://deb.debian.org/debian trixie InRelease [140 kB]
+Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9679 kB]
+Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [1108 B]
+Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [311 kB]
+Fetched 10.2 MB in 2s (5725 kB/s)
+Reading package lists...
+Get:1 http://deb.debian.org/debian trixie/main amd64 qemu-user amd64 1:10.0.13+ds-0+deb13u1 [71.1 MB]
+Fetched 71.1 MB in 1s (74.0 MB/s)
+W: Download is performed unsandboxed as root as file '/tmp/entangle-debs/qemu-user_1%3a10.0.13+ds-0+deb13u1_amd64.deb' couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+qemu-user 1:10.0.13+ds-0+deb13u1 ca6ede739327a20ae5a3498230c8a3a9a072c586e131bc6bcc1201eb1725e336
+Get:1 http://deb.debian.org/debian trixie/main amd64 libc6-arm64-cross all 2.41-11cross1 [1168 kB]
+Fetched 1168 kB in 0s (13.2 MB/s)
+W: Download is performed unsandboxed as root as file '/tmp/entangle-debs/libc6-arm64-cross_2.41-11cross1_all.deb' couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+libc6-arm64-cross 2.41-11cross1 82cd3a0c6754d36cb5a7acbd9fa64c38080a681608c41165736dc88438acfc71
+Get:1 http://deb.debian.org/debian trixie/main amd64 libgcc-s1-arm64-cross all 14.2.0-19cross1 [54.1 kB]
+Fetched 54.1 kB in 0s (650 kB/s)
+W: Download is performed unsandboxed as root as file '/tmp/entangle-debs/libgcc-s1-arm64-cross_14.2.0-19cross1_all.deb' couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+libgcc-s1-arm64-cross 14.2.0-19cross1 272751f04dc1669c6368005ccea3496b28626c720c64c98980f705350f4c6b6b
+Get:1 http://deb.debian.org/debian trixie/main amd64 libstdc++6-arm64-cross all 14.2.0-19cross1 [546 kB]
+Fetched 546 kB in 0s (3084 kB/s)
+W: Download is performed unsandboxed as root as file '/tmp/entangle-debs/libstdc++6-arm64-cross_14.2.0-19cross1_all.deb' couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+libstdc++6-arm64-cross 14.2.0-19cross1 81e667b7dad2d378defcc502e9772fe4f435a27e62b7a33a20576885b02e9693
+506b815cbb32d9b6066b4a2aa524071e071761e7e7f68c3ac74f3061ba852017  /usr/share/keyrings/debian-archive-keyring.gpg
+73cc2584f119f9e74c85c0a8549dbb6fd104ae3897a06a7500797f9e5b4d0943  /export/qemu-aarch64
+qemu-aarch64 version 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1)
+Copyright (c) 2003-2025 Fabrice Bellard and the QEMU Project developers
+ld.so (Debian GLIBC 2.41-11) stable release version 2.41.
+Copyright (C) 2025 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.
+There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.

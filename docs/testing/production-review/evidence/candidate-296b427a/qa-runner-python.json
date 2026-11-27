@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "scripts/tests",
+    "-p",
+    "test_run_rust*.py",
+    "-v"
+  ],
+  "started_utc": "2026-11-27T08:24:25.590306+00:00",
+  "finished_utc": "2026-11-27T08:24:26.580595+00:00",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-296b427a/qa-runner-python.log",
+  "sha256": "71058f0be363b1643949c6a382151f1d5b7edbc5efc5083460f0350f0a7db7bb"
+}

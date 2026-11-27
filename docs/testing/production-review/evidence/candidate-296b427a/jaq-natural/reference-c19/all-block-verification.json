@@ -1,0 +1,63 @@
+{
+  "checked_blocks": 128,
+  "peer_distinct": true,
+  "all_attempts_classified": true,
+  "patterns": {
+    "native": {
+      "failed->failed": 52,
+      "passed": 75,
+      "failed->passed": 1
+    },
+    "remote": {
+      "failed->failed": 56,
+      "passed": 71,
+      "failed->passed": 1
+    }
+  },
+  "real_cross_peer_recoveries": [
+    {
+      "block": 107,
+      "attempts": [
+        {
+          "elapsed_s": 0.037891918000241276,
+          "peer": "afbcdb38574079182aae307d8c334b81",
+          "request": {
+            "attempt": 1,
+            "ignored": false,
+            "name": "now",
+            "operation": "test"
+          },
+          "result": {
+            "exit_code": null,
+            "peer": "afbcdb38574079182aae307d8c334b81",
+            "stderr": "thread 'main' panicked at jaq-core/tests/common/mod.rs:35:5:\nassertion `left == right` failed\n  left: [Ok(Int(1795767901))]\n right: [Ok(Int(1795767900))]\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+            "stdout": "\nrunning 1 test\n"
+          },
+          "utc": "2026-11-27T08:25:00.965145+00:00"
+        },
+        {
+          "elapsed_s": 0.013187683005526196,
+          "peer": "11437f327181b9daa938348eb5599522",
+          "request": {
+            "attempt": 2,
+            "ignored": false,
+            "name": "now",
+            "operation": "test"
+          },
+          "result": {
+            "exit_code": 0,
+            "peer": "11437f327181b9daa938348eb5599522",
+            "stderr": "",
+            "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s\n\n"
+          },
+          "utc": "2026-11-27T08:25:01.003186+00:00"
+        }
+      ]
+    }
+  ],
+  "plan_sha256": "5c611fc83708fe3886157ca4203bbf8fcc6717096ea2dfc0eae6fb387f238a4b",
+  "raw_payload_sha256": "45f60ed0086ce70aa012d013f8b822f84ef2676ffe2da5eaeddef028037b4e48",
+  "candidate_source": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "checked_requests_pinned": false,
+  "witness_criterion_met": true
+}

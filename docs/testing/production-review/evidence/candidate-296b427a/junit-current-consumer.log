@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-296b427a/junit/verify.py", line 85, in <module>
+    main()
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-296b427a/junit/verify.py", line 77, in main
+    assert measures, path
+           ^^^^^^^^
+AssertionError: docs/testing/production-review/evidence/candidate-296b427a/rust-libtest-native-oracle/results.json

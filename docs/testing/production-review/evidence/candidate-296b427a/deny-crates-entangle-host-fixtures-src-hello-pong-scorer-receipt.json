@@ -1,0 +1,10 @@
+{
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "started_utc": "2026-11-27T08:24:13+00:00",
+  "finished_utc": "2026-11-27T08:24:14+00:00",
+  "exit_code": 0,
+  "sha256": "1d5281a11bb7d2e68afd78721e2f68ac392b48ef8e996bfc6ad61ecd84c9181d",
+  "log": "docs/testing/production-review/evidence/candidate-296b427a/deny-crates-entangle-host-fixtures-src-hello-pong.log.gz",
+  "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path crates/entangle-host/fixtures-src/hello-pong/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-296b427a/dependency-policy.toml advisories bans licenses sources"
+}

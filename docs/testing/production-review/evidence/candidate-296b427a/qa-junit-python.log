@@ -1,0 +1,10 @@
+test_cli_preserves_files_on_failure_and_exports_completed_failed_runs (test_rust_test_junit.JUnitTests.test_cli_preserves_files_on_failure_and_exports_completed_failed_runs) ... ok
+test_counts_identity_time_and_diagnostics_round_trip (test_rust_test_junit.JUnitTests.test_counts_identity_time_and_diagnostics_round_trip) ... ok
+test_duplicate_names_are_scoped_to_each_suite (test_rust_test_junit.JUnitTests.test_duplicate_names_are_scoped_to_each_suite) ... ok
+test_incomplete_attempt_cannot_be_published (test_rust_test_junit.JUnitTests.test_incomplete_attempt_cannot_be_published) ... ok
+test_terminal_status_must_match_the_attempts (test_rust_test_junit.JUnitTests.test_terminal_status_must_match_the_attempts) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.676s
+
+OK

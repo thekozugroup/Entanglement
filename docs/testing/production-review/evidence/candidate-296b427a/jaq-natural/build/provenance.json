@@ -1,0 +1,56 @@
+{
+  "upstream": "https://github.com/01mf02/jaq",
+  "upstream_commit": "606164eb26420c892c9bac27f7daf77b7a406b6d",
+  "removal_commit": "191e5e6780aad7fcc6295e3aced68bfd657eef14",
+  "upstream_removal_title": "remove flaky test",
+  "upstream_removal_patch": "diff --git a/jaq-core/tests/named.rs b/jaq-core/tests/named.rs\nindex 461f4ba..d01bb33 100644\n--- a/jaq-core/tests/named.rs\n+++ b/jaq-core/tests/named.rs\n@@ -128,14 +128,6 @@ fn limit() {\n     give(json!(null), \"[limit(-1; 0, 1)]\", json!([]));\n }\n \n-#[test]\n-fn now() {\n-    let curr_timestamp = std::time::SystemTime::now()\n-        .duration_since(std::time::UNIX_EPOCH)\n-        .unwrap();\n-    give(json!(null), \"now | round\", json!(curr_timestamp.as_secs()));\n-}\n-\n #[test]\n fn range() {\n     let y = json!([-1, -1, 0, 1, 1]);",
+  "git_tree": "3fca9ebf3edf5ef58eb1a1f9db8f344b537be0a6",
+  "upstream_diff": "",
+  "upstream_package_manifests": [
+    {
+      "name": "jaq-parse",
+      "version": "1.0.0-alpha",
+      "license": "MIT",
+      "relative_path": "jaq-parse/Cargo.toml"
+    },
+    {
+      "name": "jaq-core",
+      "version": "1.0.0-alpha",
+      "license": "MIT",
+      "relative_path": "jaq-core/Cargo.toml"
+    },
+    {
+      "name": "jaq-std",
+      "version": "1.0.0-alpha",
+      "license": "MIT",
+      "relative_path": "jaq-std/Cargo.toml"
+    },
+    {
+      "name": "jaq",
+      "version": "1.0.0-alpha",
+      "license": "MIT",
+      "relative_path": "jaq/Cargo.toml"
+    }
+  ],
+  "files_sha256": {
+    "Cargo.toml": "52d7fcedb2c6fca150f861525d307ef73da9a12c05a12cbb3c1ec1558a134cb8",
+    "Cargo.lock": "bc7ec7e5dfab7363f649fa7d76af767e8835a2a110785d939691e06c16255ed6",
+    "jaq-core/tests/named.rs": "0d86802167c266bb9e917d356f65c5c156eeee9df0765bc97e2e9a6b63a110c4",
+    "jaq-core/tests/common/mod.rs": "b97da04bda0f88afde0ae570f5d9378c06a76f427f71071fee7f82f357c986a3",
+    "jaq/tests/golden.rs": "7b08285c03e7875331e2058184708cef7f7bb7fcbb1e471007dd54d972ec1ce2",
+    "LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+  },
+  "tools": {
+    "1.78.0": "rustc 1.78.0 (9b00956e5 2024-04-29)\nbinary: rustc\ncommit-hash: 9b00956e56009bab2aa15d7bff10916599e3d6d6\ncommit-date: 2024-04-29\nhost: x86_64-unknown-linux-gnu\nrelease: 1.78.0\nLLVM version: 18.1.2\n",
+    "1.91.1": "rustc 1.91.1 (ed61e7d7e 2025-11-07)\nbinary: rustc\ncommit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb\ncommit-date: 2025-11-07\nhost: x86_64-unknown-linux-gnu\nrelease: 1.91.1\nLLVM version: 21.1.2\n"
+  },
+  "legacy_core_target": "wasm32-wasip1",
+  "adapter_crate": "wasi-preview1-component-adapter-provider",
+  "adapter_version": "36.0.23",
+  "adapter_sha256": "cf1ac3e26f348d1983f518b9c115607d723312622ea8fe13668210e2bedebf73",
+  "adapter_cli_sha256": "a699ecb7b7c446de7e6300f5d8d9009dfd57c26f26c52efc7518080a5bf23157",
+  "adapter_source_sha256": "32ea2e53f12117d3b3134999836ef7fba61aa28f38c31ab035593571d36b9324",
+  "tools_notes": "Rust 1.78.0 native and wasm32-wasip1 artifacts use the upstream lock and Cargo-supported original target, with the published WASI Preview 1 command adapter. Cargo 1.78 requires -Zdoctest-xcompile with RUSTC_BOOTSTRAP=1 to run cross-target doctests; no changes to upstream test sources.",
+  "regex_locked_object": "90eebbdb9396ca10510130327073a3d596674d04",
+  "regex_recovery": "Original locked Git object recovered from upstream rust-lang/regex. No Cargo.lock edits."
+}

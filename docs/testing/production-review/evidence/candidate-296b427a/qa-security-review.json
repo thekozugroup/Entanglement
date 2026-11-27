@@ -1,0 +1,18 @@
+{
+  "reviewer": "/root/qa",
+  "source_commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "started_utc": "2026-11-27T08:23:22+00:00",
+  "finished_utc": "2026-11-27T08:37:10.814749+00:00",
+  "exit_code": 0,
+  "command": "independent source review, recorded unit checks and real publisher incident rehearsal",
+  "log": "docs/testing/production-review/evidence/candidate-296b427a/qa-security-review.md",
+  "sha256": "760f17f274e2691bbe50710550fc307aba7069086f640108aee858a1df64cf0c",
+  "supporting_sha256": {
+    "qa-publisher-incident.json": "411b9b534b5f554a5208f9b59a134935a13103f1d855b9fbeebcb5118d9d5be7",
+    "qa-runner-python.json": "39a707ca9f92e8a2ea60e30247928d26ae36ff53814c12b6c2d8f0789322899e",
+    "qa-junit-python.json": "789ca8d474d408270fca370fda2962500fd07df4d57ac6c41d10907c3dac1a00",
+    "rust-sharder-integration/identity-first.json": "11678f8330eea55f8eb2243c78e43dbd773828e4032c719bec8bff05b72cb5b0"
+  }
+}

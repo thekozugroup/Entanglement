@@ -1,0 +1,23 @@
+{
+  "baseline": {
+    "daemon_sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+    "daemon_suffix": "86c910d20e950a7b",
+    "cargo_runtime": "entangle-runtime-8d73b363cb08e9e6",
+    "cargo_host_fingerprint": "7dac110c6219d04a",
+    "host_metadata_filename": "libentangle_host-2e618cbf580ac3bf.rmeta",
+    "host_metadata_sha256": "7aec469a2ee7da48d1bc7c96c173d241e7ac4a1f400f46aead65b6ca35f41dd0",
+    "LoadedPlugin_size_bytes": 144,
+    "constant_llvm_ir": "define noundef i64 @signed_host_handle_size() unnamed_addr #0 {\nstart:\n  ret i64 144"
+  },
+  "candidate": {
+    "daemon_sha256": "a581695b1ac2b939391501d3daef987ad188bddcd85a473ab661a7a1a31e936e",
+    "daemon_suffix": "bee5d71fbad422a0",
+    "cargo_runtime": "entangle-runtime-2d89c8470109a9d5",
+    "cargo_host_fingerprint": "35f295e8fa899291",
+    "host_metadata_filename": "libentangle_host-8af68fcb61ae890b.rmeta",
+    "host_metadata_sha256": "0a6c51b8e5dfe040a056142ea11fa838ca2ef8f5d0a9a63ad357baddb218a34a",
+    "LoadedPlugin_size_bytes": 208,
+    "constant_llvm_ir": "define noundef i64 @signed_host_handle_size() unnamed_addr #0 {\nstart:\n  ret i64 208"
+  },
+  "method": "Starting at the release binary with verified archive SHA256, follow Cargo .fingerprint dependency hashes through entangle_runtime to entangle_host metadata. Compile size_of::<entangle_host::LoadedPlugin>() to LLVM IR with rustc 1.91.1 and associated rmeta. This is the handle layout, not a timing or the number of machine instructions executed."
+}

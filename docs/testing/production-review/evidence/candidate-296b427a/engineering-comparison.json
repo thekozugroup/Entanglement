@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-296b427a/engineering/compare.py",
+    "/workspace/Entanglement/target/debug/deps/daemon_compute-50f134c0d2ccb3e8",
+    "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+    "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b"
+  ],
+  "started_utc": "2026-11-27T08:39:04.080784+00:00",
+  "finished_utc": "2026-11-27T08:39:46.621435+00:00",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-296b427a/engineering-comparison.log",
+  "sha256": "e294f594ab1f2ac2c90b7cdd78caa5cecb20bbd25c3838c7992410765e751ccd"
+}

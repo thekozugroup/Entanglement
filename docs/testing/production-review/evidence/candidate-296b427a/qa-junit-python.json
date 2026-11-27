@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "scripts/tests",
+    "-p",
+    "test_rust_test_junit.py",
+    "-v"
+  ],
+  "started_utc": "2026-11-27T08:24:35.922825+00:00",
+  "finished_utc": "2026-11-27T08:24:37.070561+00:00",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-296b427a/qa-junit-python.log",
+  "sha256": "05f10a6d0c114bb25616e2655a441ede605248663decd6a5a5fa48caa0c4433c"
+}

@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "started_utc": "2026-11-27T08:24:37+00:00",
+  "finished_utc": "2026-11-27T08:24:37+00:00",
+  "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/json-query/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-296b427a/dependency-policy.toml advisories bans licenses sources",
+  "exit_code": 0,
+  "log": "deny-plugins-json-query.log.gz",
+  "log_sha256": "aa4619a6742dc531c32b9f02efe0034baae70e68c2b26631b9055b7d44a4b49c"
+}

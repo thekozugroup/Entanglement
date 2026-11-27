@@ -1,0 +1,26 @@
+{
+  "started": "2026-11-27T08:35:01.327680+00:00",
+  "converter_sha256": "0f3900d3ec3e30a2734c7d21c94768e680f5b55021486d926b068bc6d554c9f2",
+  "consumer": "junitparser",
+  "version": "5.0.3",
+  "python": "3.12.14",
+  "inputs": [
+    {
+      "name": "captures.json.gz",
+      "sha256": "d5f08edae35260aedd88c6ffffb0f3e7ce4326b71287e71aa1f50bdb0b1f06f6",
+      "results": [
+        {
+          "counts": {
+            "passed": 48
+          },
+          "cases": 48,
+          "input_bytes": 2974155,
+          "input_sha256": "a3e2aa0c40046a0643238fb6267d4cd231f71bb0fd0a26fd361da1683b5774a1",
+          "xml_bytes": 3962173,
+          "xml_sha256": "b060c511e5a6374370ed97cfdbfcd532abf2175b0bcbec17ed8d263f4dbe70f1"
+        }
+      ]
+    }
+  ],
+  "finished": "2026-11-27T08:35:02.364419+00:00"
+}

@@ -1,0 +1,232 @@
+{
+  "A1": {
+    "outcome": {
+      "old_tailscaled_pid": 1041077,
+      "new_tailscaled_pid": 1043544,
+      "to_overlay_s": 1.215,
+      "overlay_to_job_s": 10.168
+    },
+    "first_dispatch": 0.0,
+    "failures": {},
+    "latest_failed_dispatch": null,
+    "successful_dispatch_began": 0.0,
+    "successful_dispatch_returned": 10.168,
+    "actual_status_on_coordinator": [
+      [
+        -16.349,
+        true,
+        "entangled"
+      ]
+    ],
+    "independent_coordinator_status_changes": [
+      [
+        -17.04,
+        true
+      ],
+      [
+        -4.1,
+        false
+      ],
+      [
+        -0.023,
+        true
+      ]
+    ],
+    "worker_bind_changes": [
+      [
+        -17.04,
+        true
+      ],
+      [
+        -12.615,
+        false
+      ],
+      [
+        7.508,
+        true
+      ]
+    ],
+    "coordinator_bind_changes": [
+      [
+        -17.04,
+        true
+      ]
+    ],
+    "offline_duration": 14.000135772999784
+  },
+  "B1": {
+    "outcome": {
+      "old_tailscaled_pid": 1043544,
+      "new_tailscaled_pid": 1044908,
+      "to_overlay_s": 1.412,
+      "overlay_to_job_s": 1.112
+    },
+    "first_dispatch": 0.001,
+    "failures": {},
+    "latest_failed_dispatch": null,
+    "successful_dispatch_began": 0.001,
+    "successful_dispatch_returned": 1.112,
+    "actual_status_on_coordinator": [
+      [
+        -36.603,
+        true,
+        "entangled"
+      ],
+      [
+        -6.422,
+        true,
+        "entangled"
+      ]
+    ],
+    "independent_coordinator_status_changes": [
+      [
+        -37.47,
+        true
+      ],
+      [
+        -4.177,
+        false
+      ],
+      [
+        -0.065,
+        true
+      ]
+    ],
+    "worker_bind_changes": [
+      [
+        -37.236,
+        true
+      ],
+      [
+        -13.405,
+        false
+      ],
+      [
+        0.52,
+        true
+      ]
+    ],
+    "coordinator_bind_changes": [
+      [
+        -37.47,
+        true
+      ]
+    ],
+    "offline_duration": 14.000541391003935
+  },
+  "B2": {
+    "outcome": {
+      "old_tailscaled_pid": 1044908,
+      "new_tailscaled_pid": 1046534,
+      "to_overlay_s": 1.418,
+      "overlay_to_job_s": 3.132
+    },
+    "first_dispatch": 0.001,
+    "failures": {},
+    "latest_failed_dispatch": null,
+    "successful_dispatch_began": 0.001,
+    "successful_dispatch_returned": 3.131,
+    "actual_status_on_coordinator": [
+      [
+        -36.6,
+        true,
+        "entangled"
+      ],
+      [
+        -6.387,
+        true,
+        "entangled"
+      ]
+    ],
+    "independent_coordinator_status_changes": [
+      [
+        -36.954,
+        true
+      ],
+      [
+        -4.542,
+        false
+      ],
+      [
+        0.359,
+        true
+      ]
+    ],
+    "worker_bind_changes": [
+      [
+        -37.063,
+        true
+      ],
+      [
+        -13.198,
+        false
+      ],
+      [
+        2.343,
+        true
+      ]
+    ],
+    "coordinator_bind_changes": [
+      [
+        -36.954,
+        true
+      ]
+    ],
+    "offline_duration": 14.00054401899979
+  },
+  "A2": {
+    "outcome": {
+      "old_tailscaled_pid": 1046534,
+      "new_tailscaled_pid": 1047747,
+      "to_overlay_s": 1.228,
+      "overlay_to_job_s": 3.165
+    },
+    "first_dispatch": 0.0,
+    "failures": {},
+    "latest_failed_dispatch": null,
+    "successful_dispatch_began": 0.0,
+    "successful_dispatch_returned": 3.163,
+    "actual_status_on_coordinator": [
+      [
+        -16.381,
+        true,
+        "entangled"
+      ]
+    ],
+    "independent_coordinator_status_changes": [
+      [
+        -17.101,
+        true
+      ],
+      [
+        -4.089,
+        false
+      ],
+      [
+        0.765,
+        true
+      ]
+    ],
+    "worker_bind_changes": [
+      [
+        -16.775,
+        true
+      ],
+      [
+        -13.163,
+        false
+      ],
+      [
+        2.35,
+        true
+      ]
+    ],
+    "coordinator_bind_changes": [
+      [
+        -17.101,
+        true
+      ]
+    ],
+    "offline_duration": 14.000121545999718
+  }
+}

@@ -1,0 +1,66 @@
+UTC start 2026-11-27T08:34:19Z
+source before sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b
+commit 296b427a3bb2d60615ea3c56b9779f97039c6e24
+rustc 1.91.1 (ed61e7d7e 2025-11-07)
+Linux 6.18.57 x86_64
+command tar -xzf /workspace/Entanglement/target/release-candidate/296b427a3bb2/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz -C /tmp/entangle-successor-libtest.YFU8ye
+bbe332a3da4d23516930d50b3439ffa7fd2f6a0530fd14cd9329f27058baca02  /tmp/entangle-successor-libtest.YFU8ye/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle
+a581695b1ac2b939391501d3daef987ad188bddcd85a473ab661a7a1a31e936e  /tmp/entangle-successor-libtest.YFU8ye/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled
+command cargo test --offline --locked --target wasm32-wasip2 --target-dir /tmp/entangle-wasip2-libtest-target --no-run --test atc_spec -p entangle-types -p entangle-manifest --message-format=json
+   Compiling entangle-types v0.1.0 (/workspace/Entanglement/crates/entangle-types)
+   Compiling entangle-manifest v0.1.0 (/workspace/Entanglement/crates/entangle-manifest)
+    Finished `test` profile [unoptimized] target(s) in 10.12s
+command rustc --target wasm32-wasip2 --test scripts/tests/fixtures/libtest_retry.rs -o /tmp/entangle-successor-libtest.YFU8ye/libtest_retry.wasm
+fbe5ae1ae9d2afaf0896a7330d586dfc90f8f89437e8093382225dad4162c190  /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-fad15992387f93fa.wasm
+e233af17248915a82bb5be9d9029ee11ab6c3d094bf90a71eeb5235f02d0a0ac  /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-d69e1d4f32c32f65.wasm
+b83bd884c88d0e3f3a54b1b70cc91e88f4ee74a1d91b39f7fa7f6d6edf7fe3bb  /tmp/entangle-successor-libtest.YFU8ye/libtest_retry.wasm
+command python3 scripts/tests/distributed-rust-tests.py --bin-dir /tmp/entangle-successor-libtest.YFU8ye/entanglement-v0.1.0-x86_64-unknown-linux-gnu --types-wasm /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-fad15992387f93fa.wasm --manifest-wasm /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-d69e1d4f32c32f65.wasm --retry-wasm /tmp/entangle-successor-libtest.YFU8ye/libtest_retry.wasm
+exit 0
+source after sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b
+UTC finish 2026-11-27T08:34:58Z
+{
+  "full": {
+    "counts": {
+      "passed": 14,
+      "flaky": 0,
+      "failed": 0,
+      "ignored": 8,
+      "error": 0
+    },
+    "filtered": 0,
+    "elapsed_ms": 302
+  },
+  "filtered": {
+    "counts": {
+      "passed": 5,
+      "flaky": 0,
+      "failed": 0,
+      "ignored": 0,
+      "error": 0
+    },
+    "filtered": 11,
+    "elapsed_ms": 112
+  },
+  "failure": {
+    "counts": {
+      "passed": 0,
+      "flaky": 0,
+      "failed": 1,
+      "ignored": 0,
+      "error": 0
+    },
+    "filtered": 1,
+    "elapsed_ms": 115
+  },
+  "retry_fixture": {
+    "counts": {
+      "passed": 0,
+      "flaky": 1,
+      "failed": 0,
+      "ignored": 1,
+      "error": 0
+    },
+    "filtered": 0,
+    "elapsed_ms": 106
+  }
+}

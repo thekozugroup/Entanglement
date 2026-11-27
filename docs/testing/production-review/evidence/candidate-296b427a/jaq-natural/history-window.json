@@ -1,0 +1,130 @@
+{
+  "origin": "https://github.com/01mf02/jaq.git",
+  "origin_main": "126f17a7f3137876aeaa73dd5246811068f767bd",
+  "shallow": "false",
+  "all_reachable_commits": 2588,
+  "checked_file_path": "jaq-core/tests/named.rs",
+  "distinct_blobs_in_history": 36,
+  "whole_tree_rust_literal_changes": [
+    "191e5e6780aad7fcc6295e3aced68bfd657eef14 2023-07-04 remove flaky test",
+    "90cabdc4b0a0f136814fd71777318ef3d6e7369e 2023-06-29 add tests for datetime functions"
+  ],
+  "events": {
+    "allocator_introduced": {
+      "commit": "c12729ad666f347281d8b37e9bddb3601fa12f68",
+      "authored": "2022-03-14T12:48:01+01:00",
+      "committed": "2022-03-14T12:48:01+01:00",
+      "parents": [
+        "7cf6387436181dbc98af4325a34c9e6a7725d351"
+      ],
+      "title": "Use mimalloc for some easy performance gains."
+    },
+    "allocator_optional_default_on": {
+      "commit": "274c90e025f1357bf1691a877bcc52e80b4f7290",
+      "authored": "2022-08-11T18:39:40+02:00",
+      "committed": "2022-08-11T18:39:40+02:00",
+      "parents": [
+        "2561e9d2e54c8d5a931541fdac48e067a5a02b02"
+      ],
+      "title": "Make mimalloc optional."
+    },
+    "golden_tests_introduced": {
+      "commit": "dadd1473c2ea8311cc68c6c1578309d31cdcff96",
+      "authored": "2022-05-19T00:34:33-07:00",
+      "committed": "2022-05-19T00:34:33-07:00",
+      "parents": [
+        "8dae1cd94d576d112d3e51cfb50e9f22da1108af"
+      ],
+      "title": "Implement -c --compact flag"
+    },
+    "eight_goldens_present": {
+      "commit": "4b514394c3359b8e5561055632c0a7a2bcff9f28",
+      "authored": "2022-10-07T15:53:12+02:00",
+      "committed": "2022-10-07T15:53:12+02:00",
+      "parents": [
+        "24f5aa745a129f175ad357a58e15ed0def5a6c24"
+      ],
+      "title": "Implement option `--raw-input` / `-R`."
+    },
+    "clock_case_introduced": {
+      "commit": "90cabdc4b0a0f136814fd71777318ef3d6e7369e",
+      "authored": "2023-06-29T13:04:56-05:00",
+      "committed": "2023-06-29T13:04:56-05:00",
+      "parents": [
+        "7bc1b54a56d864345860087846558fdf1b47454f"
+      ],
+      "title": "add tests for datetime functions"
+    },
+    "clock_case_removed": {
+      "commit": "191e5e6780aad7fcc6295e3aced68bfd657eef14",
+      "authored": "2023-07-04T14:12:16-05:00",
+      "committed": "2023-07-04T14:12:16-05:00",
+      "parents": [
+        "606164eb26420c892c9bac27f7daf77b7a406b6d"
+      ],
+      "title": "remove flaky test"
+    }
+  },
+  "affected_revisions": [
+    {
+      "commit": "606164eb26420c892c9bac27f7daf77b7a406b6d",
+      "date": "2023-07-04T14:11:33-05:00",
+      "ancestors": {
+        "allocator_introduced": true,
+        "allocator_optional_default_on": true,
+        "golden_tests_introduced": true,
+        "eight_goldens_present": true,
+        "clock_case_introduced": true,
+        "clock_case_removed": false
+      },
+      "named_test_blob": "461f4bad5be1ce3402a6e4346c8b8835770e43d4",
+      "golden_blob": "20c68e7fdb590d7d2bed241bb24b82e38adab075",
+      "golden_cases": [
+        "arg",
+        "one",
+        "sparse",
+        "compact",
+        "inputs",
+        "null_input",
+        "raw_input",
+        "raw_input_slurp"
+      ],
+      "golden_has_build_time_input_path": true,
+      "golden_launches_external_binary": true,
+      "mimalloc_default": true,
+      "source_enables_allocator": true,
+      "workspace_build_docs_wasm_matches": [],
+      "upstream_workflow": "name: Rust\n\non:\n  push:\n    branches: [ main ]\n  pull_request:\n    branches: [ main ]\n\nenv:\n  CARGO_TERM_COLOR: always\n\njobs:\n  build:\n\n    runs-on: ubuntu-latest\n\n    steps:\n    - uses: actions/checkout@v2\n    - name: Build\n      run: cargo build --verbose\n    - name: Check (without default features)\n      working-directory: jaq-core\n      run: cargo check --no-default-features\n    - name: Run tests\n      run: cargo test --verbose"
+    },
+    {
+      "commit": "90cabdc4b0a0f136814fd71777318ef3d6e7369e",
+      "date": "2023-06-29T13:04:56-05:00",
+      "ancestors": {
+        "allocator_introduced": true,
+        "allocator_optional_default_on": true,
+        "golden_tests_introduced": true,
+        "eight_goldens_present": true,
+        "clock_case_introduced": true,
+        "clock_case_removed": false
+      },
+      "named_test_blob": "461f4bad5be1ce3402a6e4346c8b8835770e43d4",
+      "golden_blob": "20c68e7fdb590d7d2bed241bb24b82e38adab075",
+      "golden_cases": [
+        "arg",
+        "one",
+        "sparse",
+        "compact",
+        "inputs",
+        "null_input",
+        "raw_input",
+        "raw_input_slurp"
+      ],
+      "golden_has_build_time_input_path": true,
+      "golden_launches_external_binary": true,
+      "mimalloc_default": true,
+      "source_enables_allocator": true,
+      "workspace_build_docs_wasm_matches": [],
+      "upstream_workflow": "name: Rust\n\non:\n  push:\n    branches: [ main ]\n  pull_request:\n    branches: [ main ]\n\nenv:\n  CARGO_TERM_COLOR: always\n\njobs:\n  build:\n\n    runs-on: ubuntu-latest\n\n    steps:\n    - uses: actions/checkout@v2\n    - name: Build\n      run: cargo build --verbose\n    - name: Check (without default features)\n      working-directory: jaq-core\n      run: cargo check --no-default-features\n    - name: Run tests\n      run: cargo test --verbose"
+    }
+  ]
+}

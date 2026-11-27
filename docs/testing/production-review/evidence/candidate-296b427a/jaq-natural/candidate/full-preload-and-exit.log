@@ -1,0 +1,7 @@
+Error: failed to decode world from module
+
+Caused by:
+    0: module was not valid
+    1: failed to resolve import `env::mi_malloc_aligned`
+    2: module requires an import interface named `env`
+12 harnesses, Cargo exit 101

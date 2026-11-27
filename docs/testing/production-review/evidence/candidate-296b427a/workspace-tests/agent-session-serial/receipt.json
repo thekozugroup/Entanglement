@@ -1,0 +1,36 @@
+{
+  "command": "cargo test --locked -p entangle-agent-host --test session -- --test-threads=1",
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "entangle-agent-host",
+    "--test",
+    "session",
+    "--",
+    "--test-threads=1"
+  ],
+  "claim": "AgentSession integration cases rerun in serial.",
+  "source_commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_commit_after": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_id": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_matches": true,
+  "started_at_utc": "2026-11-27T08:30:33+00:00",
+  "finished_at_utc": "2026-11-27T08:30:35+00:00",
+  "observed_at_utc": "2026-11-27T08:30:35+00:00",
+  "exit_code": 0,
+  "path": "docs/testing/production-review/evidence/candidate-296b427a/workspace-tests/agent-session-serial/test.log",
+  "sha256": "a05373bf4af33ff05c8739f309566f8763df336c1e626f6a589c646a8d942503",
+  "result_groups": 1,
+  "failed_result_groups": 0,
+  "tests": {
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0,
+    "measured": 0,
+    "filtered_out": 0
+  }
+}

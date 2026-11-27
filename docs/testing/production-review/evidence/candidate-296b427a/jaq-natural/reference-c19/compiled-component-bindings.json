@@ -1,0 +1,62 @@
+[
+  {
+    "core_sha256": "0b0995d5849b3273fdf8f0de9e106254a05c34c87c24ffd84fb56a456d278b58",
+    "signed_component_sha256": "c3e25d8c947224f8c0f4896cca9da87e7b39511e73946edc6c02a226ff82f19e",
+    "signed_manifest_sha256": "1148e785120de88ecd095f0af8cd799e1906d04b430cf5927bf4e00c8cd4e468",
+    "plugin": "c1204d2c9f027ef936b5d154c305d680/test-0b0995d5849b3273fdf8f0de@0.1.0"
+  },
+  {
+    "core_sha256": "36b56c1b2ab0234ad9e0f1c7706d662a86099689dc248671975f82265484e09f",
+    "signed_component_sha256": "b23621429ca88ee987733797f8651c17304aee2a6f532fe09431774136a2eae3",
+    "signed_manifest_sha256": "d0035ab8de561d3e6d8178a56a6658560ff20dfd31089a96fdb281104f90f0d8",
+    "plugin": "c1204d2c9f027ef936b5d154c305d680/test-36b56c1b2ab0234ad9e0f1c7@0.1.0"
+  },
+  {
+    "artifact": "/tmp/entangle-demand-qa/jaq-natural/target178/wasm32-wasip1/debug/deps/jaq-216f5e6711f4217a.wasm",
+    "core_sha256": "72d81cf142f7ad3d3008f64453fcbcaa68593359a5e7ff2e09b9510109b5d412",
+    "error": "Command '['/tmp/entangle-demand-qa/jaq-natural/component-adapter', PosixPath('/tmp/entangle-demand-qa/jaq-natural/target178/wasm32-wasip1/debug/deps/jaq-216f5e6711f4217a.wasm'), '/workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasi-preview1-component-adapter-provider-36.0.23/artefacts/wasi_snapshot_preview1.command.wasm', PosixPath('/tmp/ent-cargo-wasi-bi6ydg3o/suite9/command.component.wasm')]' returned non-zero exit status 1.",
+    "status": "preload failed; real Cargo runner will receive the same artifact"
+  },
+  {
+    "core_sha256": "7f647b6a4c6ce00194989c679fe90213c15628e3e014cdd76e5f6109874c544c",
+    "signed_component_sha256": "453c8cf550ae6547376457d1f1679b5ea444bddc98cf1508d42eadd68680fc1a",
+    "signed_manifest_sha256": "ca599c90b08846d7b0854cd56edaba3801a034b693a00c8f7140afc31e358aef",
+    "plugin": "c1204d2c9f027ef936b5d154c305d680/test-7f647b6a4c6ce00194989c67@0.1.0"
+  },
+  {
+    "core_sha256": "93ae2efcc4875ea4855d1770389de5f54bacee86344c33fe7b2d06fba70d3a63",
+    "signed_component_sha256": "931764c0731ea3cc369baa8ca6595c4148866b9baa556c9a03e5306f876c105f",
+    "signed_manifest_sha256": "297d5a83e905332dbfa8b864d936ccd95b99aa3e39702715e596ed2ed7d77a46",
+    "plugin": "c1204d2c9f027ef936b5d154c305d680/test-93ae2efcc4875ea4855d1770@0.1.0"
+  },
+  {
+    "core_sha256": "a12be036cfc4f47aef55cbcd21bb26b70f5872fa016b05a8536128673f56e5d9",
+    "signed_component_sha256": "3ebcb91fa5a0019289ea87eebe3be9277b39c9ad1324ca94e79bbc2c8b96ab9d",
+    "signed_manifest_sha256": "fac5b1819e16eefe5b45c49afe5a817da35fd68aa98f1184dcc540fb12a54831",
+    "plugin": "c1204d2c9f027ef936b5d154c305d680/test-a12be036cfc4f47aef55cbcd@0.1.0"
+  },
+  {
+    "core_sha256": "a8dc2ee5178b27074ddee3d355886ecbe1c7f86a988fad5add4dd6e5e5cc7bb8",
+    "signed_component_sha256": "19d453e2c8acbaad1936c490c6e69ffa1143c9f5a3e7b3917d30df8573f07382",
+    "signed_manifest_sha256": "c08f3f20581e54b47122d82f91fd21cab8948d23fd1b4986195bc1e707559b4c",
+    "plugin": "c1204d2c9f027ef936b5d154c305d680/test-a8dc2ee5178b27074ddee3d3@0.1.0"
+  },
+  {
+    "core_sha256": "e6f2a57847e3e218744b8f08927a77d7f0a466964cd734e3c50b0e770a0fe20c",
+    "signed_component_sha256": "7845ea9bcd26e69bacd5c456d44bcd0d7a1fedd0294e628b13198a5b62aa9137",
+    "signed_manifest_sha256": "cd5afe74b1c57edf72c1ba878a2b668c37bb5efa6918fe1cb90e23e99d782fdf",
+    "plugin": "c1204d2c9f027ef936b5d154c305d680/test-e6f2a57847e3e218744b8f08@0.1.0"
+  },
+  {
+    "core_sha256": "e7ca9f7634b1c6ad91f0861684bce676a27bb34bb1baf439dfe37eacc9659545",
+    "signed_component_sha256": "b03c4104356aa5650d3d847ca1d1aae807b070258af223492e061ca8466ce6b6",
+    "signed_manifest_sha256": "a0df0f4e1e2d1eb3a7f5af20058601f0db20bccd80b724d40330f76adf5befb6",
+    "plugin": "c1204d2c9f027ef936b5d154c305d680/test-e7ca9f7634b1c6ad91f08616@0.1.0"
+  },
+  {
+    "core_sha256": "edc26a0285a15521f54ff5fc570c0f3f6ab143ae9dcca0b2c7125521335e6472",
+    "signed_component_sha256": "b8f0ae5756c5d14db0e481ce5c6ad3701697b028e5de7c2aa332d03256ef3895",
+    "signed_manifest_sha256": "9b3840a8355df4afd8bfc524e770950965ef559e9e388ec7b5aa602d8f0ec2fb",
+    "plugin": "c1204d2c9f027ef936b5d154c305d680/test-edc26a0285a15521f54ff5fc@0.1.0"
+  }
+]

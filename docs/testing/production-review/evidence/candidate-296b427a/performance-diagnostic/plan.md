@@ -1,0 +1,5 @@
+# Follow-up plan recorded before dispatch
+
+The original seven-route engineering result remains unchanged. This diagnostic compares the frozen c19ef758 daemon (A) with 296b427a (B) and independently compares two labels using the same 296b427a daemon (C and D). Each label uses the same current CLI, original greeting driver and signed image corpus. Each arm starts fresh clusters, measures all four greeting routes and then all three image routes. Retain original three rotated batches per image arm and use their medians as the paired observations.
+
+Chronological adjacent pairs are AB, CD, BA, DC, BA, DC, AB, CD. This balances both orders for A/B and C/D independently and interleaves the controls. Stop at 300 s or on correctness failure. Publish every arm, including partial outcomes. Record p95 and throughput paired ratios by route, median/range, directions by build order, cgroup CPU throttling, and external CPU activity. The original 5% targets give reference bounds. Four independent pairs per comparison support an engineering diagnosis on this VM, with no production noninferiority decision or exclusion of unfavorable runs.

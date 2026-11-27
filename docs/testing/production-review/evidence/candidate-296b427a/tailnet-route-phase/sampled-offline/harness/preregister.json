@@ -1,0 +1,18 @@
+{
+  "when_utc": "2026-11-27T08:52:06.313867+00:00",
+  "sha256": {
+    "private-tailnet.py": "85e29e8cdf3458c5c73255963e25ee2c8ee8e8b3bdf13b43e023859f04c823a3",
+    "phase.py": "e72109987f55e816e5190168bc6453d4c8349122e242cdfd724720cc0bf9db4e",
+    "private_recovery.py": "ad4e94daebc175cdb28cb5c1fcff176f0b41c7f5e6dab2fc9a21cbd2f57d5842",
+    "run.py": "539d07e1d5ae8e0e689dea0dc29ed772dc00ac9b0cbaae82f97e025ced59265e",
+    "status.py": "f7e11f4de39a4db9024d14827331656618cadb054e02f6c81f2531695b188fe8",
+    "stage.py": "89da83c906bf23381db609b6995fb0a2c00ffd8b581f743b04f468c464932ca6",
+    "analyze.py": "eb25e538a7ed28451a023f93e6be67f6de7ba9f201e6f5865a5ea7a79e8dc585",
+    "PROTOCOL.md": "b9ba6b34eb205d351a4f3507a1d9468a39c321ee9ae077c72b647cbb79fe35ab"
+  },
+  "roles": [
+    "C1 at 17",
+    "C2 at 17"
+  ],
+  "previous": "/tmp/entangle-296b-reconvergence/observed-em_w2dgz"
+}

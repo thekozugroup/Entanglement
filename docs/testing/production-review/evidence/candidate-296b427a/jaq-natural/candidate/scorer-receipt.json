@@ -1,0 +1,10 @@
+{
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "started_utc": "2026-11-27T08:34:21.788027+00:00",
+  "finished_utc": "2026-11-27T08:35:11.986687+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-296b427a/jaq-natural/candidate/receipt.json",
+  "sha256": "12f926779d58186e742fa97d92bf59d363560bbac9981620de82e0eab38e9ed1",
+  "command": "jaq preregistered 128-block natural retry cohort"
+}

@@ -1,0 +1,14 @@
+{
+  "command": [
+    "bash",
+    "-c",
+    "export PATH=/workspace/Entanglement/target/debug:$PATH; entangle doctor | tail -1; entangle mesh status --json | python3 -c \"import sys,json; value=json.load(sys.stdin); assert value.get(\\\"libtest_remote_codes\\\")==1; print(\\\"Signed suite protocol version\\\",value[\\\"libtest_remote_codes\\\"])\""
+  ],
+  "started_utc": "2026-11-27T08:32:32.414093+00:00",
+  "finished_utc": "2026-11-27T08:32:33.559222+00:00",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-296b427a/tooling-upgrade-doctor.log",
+  "sha256": "6cf1ef04eff54cef25d0b53255bb01b6df1ded97e0d3ffaf57021c708be1fd49"
+}

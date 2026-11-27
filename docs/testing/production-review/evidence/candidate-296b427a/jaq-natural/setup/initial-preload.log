@@ -1,0 +1,18 @@
+Error: failed to decode world from module
+
+Caused by:
+    0: module was not valid
+    1: failed to resolve import `env::mi_malloc_aligned`
+    2: module requires an import interface named `env`
+Traceback (most recent call last):
+  File "/tmp/entangle-demand-qa/jaq-natural/workspace.py", line 229, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/tmp/entangle-demand-qa/jaq-natural/workspace.py", line 190, in main
+    where=d/("suite"+str(i));where.mkdir();ctx["preloaded"][digest(artifact)]=package(ctx,artifact,where)
+                                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/entangle-demand-qa/jaq-natural/workspace.py", line 41, in package
+    subprocess.run([os.environ["JAQ_COMPONENT_ENCODER"],artifact,os.environ["JAQ_WASI_ADAPTER"],component],check=True)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/tmp/entangle-demand-qa/jaq-natural/component-adapter', PosixPath('/tmp/entangle-demand-qa/jaq-natural/target178/wasm32-wasip1/debug/deps/jaq-216f5e6711f4217a.wasm'), '/workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasi-preview1-component-adapter-provider-36.0.23/artefacts/wasi_snapshot_preview1.command.wasm', PosixPath('/tmp/ent-cargo-wasi-nmfbg9x2/suite9/command.component.wasm')]' returned non-zero exit status 1.

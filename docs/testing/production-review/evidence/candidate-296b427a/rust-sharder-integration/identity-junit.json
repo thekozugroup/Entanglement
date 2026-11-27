@@ -1,0 +1,79 @@
+{
+  "input_sha256": "11678f8330eea55f8eb2243c78e43dbd773828e4032c719bec8bff05b72cb5b0",
+  "source_commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_id": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "archive_sha256": "871f154179c2387c76a09101e6316d5e242b6f6b144fa4bc98932bb164f31132",
+  "production_converter": "scripts/rust-test-junit.py",
+  "reports": {
+    "matching-control": {
+      "status": "passed",
+      "attempts": 1,
+      "matching_history_and_identity": true,
+      "xml_sha256": "d97df5cbc5743795cb625349ac1ebe582a94fd2fe312ec7e2d7d418de8f276d7",
+      "exit_code": 0
+    },
+    "change-after-list-before-exact": {
+      "status": "error",
+      "attempts": 1,
+      "matching_history_and_identity": true,
+      "xml_sha256": "1f328ae9d1ce6bca202e723ff3a16e0296f3b61ab43700022455df0bdc652592",
+      "exit_code": 0
+    },
+    "change-after-failure-before-retry": {
+      "status": "error",
+      "attempts": 2,
+      "matching_history_and_identity": true,
+      "xml_sha256": "e49ed03ec4c9e71d83b21759bcf9b0cd85ebc50cabdfc28fba6042ad425e1b99",
+      "exit_code": 0
+    },
+    "matching-retry-control": {
+      "status": "flaky",
+      "attempts": 2,
+      "matching_history_and_identity": true,
+      "xml_sha256": "d81663e31e3d381053155fdc083c5adf3d952cd0837c22bf06135ebc2981961f",
+      "exit_code": 0
+    },
+    "replace-during-admitted-guest": {
+      "status": "passed",
+      "attempts": 1,
+      "matching_history_and_identity": true,
+      "xml_sha256": "1c98be642cce7fc6f066c78691e7f0efd82c5f1523345a585f92c922342c0187",
+      "exit_code": 0
+    },
+    "new-fingerprint-after-drain": {
+      "status": "passed",
+      "attempts": 1,
+      "matching_history_and_identity": true,
+      "xml_sha256": "46484d3ee7c644e9144b71346440e08dbb835bba216d858b838a558f02669bf0",
+      "exit_code": 0
+    },
+    "selected-after-unload": {
+      "status": "error",
+      "attempts": 1,
+      "matching_history_and_identity": true,
+      "xml_sha256": "f76ae434cc61e3b8fa8f94a05d8404b8be47f73285b19fdc0d168d975ebd6c9d",
+      "exit_code": 0
+    },
+    "selected-after-revoke": {
+      "status": "error",
+      "attempts": 1,
+      "matching_history_and_identity": true,
+      "xml_sha256": "0f43e76302d3e35437cceb5be4599dec93ff0acdeaad5b3719cabf6a8201cca0",
+      "exit_code": 0
+    },
+    "loaded-suite-after-key-removal": {
+      "status": "passed",
+      "attempts": 1,
+      "matching_history_and_identity": true,
+      "xml_sha256": "c81c26c95f0b34645712c754650f432f21dc61d219bb087d0e1c3e395ec4018b",
+      "exit_code": 0
+    },
+    "fresh-after-trust-restored": {
+      "status": "passed",
+      "attempts": 1,
+      "matching_history_and_identity": true,
+      "xml_sha256": "5660d5d04f3c034cab93cccae9685986dfeb99e4b6c2b96ba9f6400ae5a18592",
+      "exit_code": 0
+    }
+  }
+}

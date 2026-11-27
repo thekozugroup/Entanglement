@@ -1,0 +1,117 @@
+{
+  "candidate": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_id": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "reviewer": "/root/qa",
+  "reviewed_utc": "2026-11-27T08:40:39.863721+00:00",
+  "acceptance_plan_sha256": "764ba58d7873b3c4bc2ed127c1dca778f05e42716afa0ac1b30cb0d2466c775e",
+  "corrigendum_sha256": "f5f08df00618e0de63eae5f0de731c744687267dc6577ec1cd71df8e0e3b74db",
+  "criteria": [
+    {
+      "id": "libtest_truth",
+      "status": "pass",
+      "reason": "Native and signed WASI controls cover assertion/panic, actual deadline, zero selector, ignores and deceptive/incomplete output. Duplicate complete output frames fail closed; untrusted guest output is not cryptographically attested.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/qa-runner-python.json",
+          "sha256": "39a707ca9f92e8a2ea60e30247928d26ae36ff53814c12b6c2d8f0789322899e"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/qa-rpc-boundaries-repro.json",
+          "sha256": "c864a04c8f677abf68c9a55b57195abff01178dc37d2f887703b60b0474b10bd"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/rust-libtest-native-oracle/results.json",
+          "sha256": "51be82ae99d85469f5db3947a454a9239c06b28fe38d94cc85c6c5a53c88ccc2"
+        }
+      ]
+    },
+    {
+      "id": "native_selector_oracle",
+      "status": "pass",
+      "reason": "Nine real native-vs-signed-WASI selector cases include repeated OR, exact/skip and ignore modes; native should-panic pass remains distinct from WASI ignored. No remote native tier-5 execution is claimed.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/rust-libtest-native-oracle/results.json",
+          "sha256": "51be82ae99d85469f5db3947a454a9239c06b28fe38d94cc85c6c5a53c88ccc2"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/qa-runner-python.json",
+          "sha256": "39a707ca9f92e8a2ea60e30247928d26ae36ff53814c12b6c2d8f0789322899e"
+        }
+      ]
+    },
+    {
+      "id": "signed_suite_agreement",
+      "status": "pass",
+      "reason": "Actual signed same-ID artifact and manifest differences, pre-exact/pre-retry swaps, unload/revoke and drain races preserve terminal errors. Scope is host-adapted signed libtest and trusted executors, not arbitrary unrelated plugin ABI or host attestation.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/rust-sharder-integration/identity-first.json",
+          "sha256": "11678f8330eea55f8eb2243c78e43dbd773828e4032c719bec8bff05b72cb5b0"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/qa-security-review.json",
+          "sha256": "d2ac4baf5afb0b25b9c310b609eeda250c70f7dca9afa6e5ad91ffede6572699"
+        }
+      ]
+    },
+    {
+      "id": "retry_semantics",
+      "status": "pass",
+      "reason": "Live fail\u2192pass, fail\u2192fail, policy rejection and identity swap checks retain peer-attributed attempt histories. Earlier ordinary infrastructure error\u2192pass stays passed with history under existing policy.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/rust-sharder-integration/identity-first.json",
+          "sha256": "11678f8330eea55f8eb2243c78e43dbd773828e4032c719bec8bff05b72cb5b0"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/rust-libtest-native-oracle/results.json",
+          "sha256": "51be82ae99d85469f5db3947a454a9239c06b28fe38d94cc85c6c5a53c88ccc2"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/qa-runner-python.json",
+          "sha256": "39a707ca9f92e8a2ea60e30247928d26ae36ff53814c12b6c2d8f0789322899e"
+        }
+      ]
+    },
+    {
+      "id": "work_conserving",
+      "status": "pass",
+      "reason": "Deterministic event barrier and signed same-host worker intervals show idle worker takes queued work while another is occupied; no physical performance claim.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/qa-runner-python.json",
+          "sha256": "39a707ca9f92e8a2ea60e30247928d26ae36ff53814c12b6c2d8f0789322899e"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/rust-sharder-integration/schedule-first.json",
+          "sha256": "0fd30cf91286290995b444c05b6e1974d1f2b4d635efb0ea0b6e7d275d735792"
+        }
+      ]
+    },
+    {
+      "id": "json_junit",
+      "status": "pass",
+      "reason": "Independent junitparser read actual multi-status reports plus 48-case ~2.97 MB capture and exact attempt histories; malformed and contradictory inputs rejected in source-bound units. Earlier consumer setup error is retained.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/qa-junit-python.json",
+          "sha256": "789ca8d474d408270fca370fda2962500fd07df4d57ac6c41d10907c3dac1a00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/junit-current-read-repeat.json",
+          "sha256": "94265c65849dbb3d76fe8633202239161b99f5031d16182829430008790182bb"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/junit-large-read.json",
+          "sha256": "4981b7207afcebb95ba72698bd71e9aa50d4a7af8b08c0f57ecc0c971a9fd521"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-296b427a/rust-sharder-integration/identity-junit.json",
+          "sha256": "f712fb90d37c0c03463f0bac47af8e95e43be358005f28b57fed27cda2803830"
+        }
+      ]
+    }
+  ],
+  "limitations": "One-host Linux scope; no production release, host attestation, remote native tier-5 or full physical performance claim. Project 57-gate grading remains separate."
+}

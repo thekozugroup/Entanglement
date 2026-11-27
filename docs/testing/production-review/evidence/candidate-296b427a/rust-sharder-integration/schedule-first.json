@@ -1,0 +1,552 @@
+{
+  "source_commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_before": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "source_id": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "started_utc": "2026-11-27T08:38:23.792974+00:00",
+  "canonical_archive_sha256": "871f154179c2387c76a09101e6316d5e242b6f6b144fa4bc98932bb164f31132",
+  "old_sharder_commit": "a837e6da48b67361b9d2841b6a37e892d7cbf2e3",
+  "artifact_sha256": {
+    "entangle": "bbe332a3da4d23516930d50b3439ffa7fd2f6a0530fd14cd9329f27058baca02",
+    "entangled": "a581695b1ac2b939391501d3daef987ad188bddcd85a473ab661a7a1a31e936e"
+  },
+  "fixture_sha256": {
+    "seeded.wasm": "78905d9834954f2de38cd8a60bf8fdc5e4d31dfcf711778d563738e66b4ffa9f",
+    "seeded.rs": "4d6132617ad20829d19626deeb1d34f3f93063d471f1acc316ac1fbbbda316b0"
+  },
+  "driver_sha256": "d570eed6313c4fc59d259796782e13b3d46d377429ae497e1b4f90a44e8e35e5",
+  "scope": "Same running new archive, product CLI sharder entry point, two same-host single-CPU-pinned real Iroh workers, one ordinary signed seeded WASI suite, mixed-duration controlled workloads; separate from natural flake evidence.",
+  "cpu_affinity": [
+    3,
+    4
+  ],
+  "peers": [
+    "75496ecb452c018a36d3be68e0b01d1a",
+    "0911197e5598074a1d163efb4287e99e"
+  ],
+  "sharder_sha256": {
+    "before": "c7b8a4cde066f7b591a54a1aaba53a20d241bd052e4885578de45f977bf49a75",
+    "after": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf"
+  },
+  "results": [
+    {
+      "kind": "before",
+      "suite_elapsed_ms": 1394,
+      "cli_wall_ms": 1458.811,
+      "guest": {
+        "a_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768705717105753,
+          "exit_ns": 1795768706970865687
+        },
+        "b_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768705715707569,
+          "exit_ns": 1795768705716036652
+        },
+        "c_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768705722489738,
+          "exit_ns": 1795768706960792573
+        },
+        "d_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768706986180690,
+          "exit_ns": 1795768706986476392
+        },
+        "e_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768706984655888,
+          "exit_ns": 1795768707087592167
+        },
+        "f_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768706991749022,
+          "exit_ns": 1795768706992101664
+        },
+        "g_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768706994669703,
+          "exit_ns": 1795768707093681044
+        },
+        "h_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768707090648896,
+          "exit_ns": 1795768707091003028
+        }
+      },
+      "peak_simultaneous_guest_invocations": {
+        "75496ecb452c018a36d3be68e0b01d1a": 2,
+        "0911197e5598074a1d163efb4287e99e": 1
+      },
+      "ms_double_on_one_worker_other_idle": 1331.225299,
+      "counts": {
+        "passed": 8,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "kind": "after",
+      "suite_elapsed_ms": 689,
+      "cli_wall_ms": 748.984,
+      "guest": {
+        "a_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768707182864043,
+          "exit_ns": 1795768707796276854
+        },
+        "b_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768707183976552,
+          "exit_ns": 1795768707184319208
+        },
+        "c_long": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768707187282054,
+          "exit_ns": 1795768707777193064
+        },
+        "d_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768707780921406,
+          "exit_ns": 1795768707781245378
+        },
+        "e_medium": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768707783374839,
+          "exit_ns": 1795768707838227039
+        },
+        "f_short": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768707799255396,
+          "exit_ns": 1795768707799555501
+        },
+        "g_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768707801878542,
+          "exit_ns": 1795768707859471609
+        },
+        "h_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768707840927111,
+          "exit_ns": 1795768707841301260
+        }
+      },
+      "peak_simultaneous_guest_invocations": {
+        "75496ecb452c018a36d3be68e0b01d1a": 1,
+        "0911197e5598074a1d163efb4287e99e": 1
+      },
+      "ms_double_on_one_worker_other_idle": 0.0,
+      "counts": {
+        "passed": 8,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "kind": "after",
+      "suite_elapsed_ms": 707,
+      "cli_wall_ms": 759.993,
+      "guest": {
+        "a_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768707925529559,
+          "exit_ns": 1795768708546663430
+        },
+        "b_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768707925485605,
+          "exit_ns": 1795768707925790309
+        },
+        "c_long": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768707927922321,
+          "exit_ns": 1795768708560937347
+        },
+        "d_short": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768708551479265,
+          "exit_ns": 1795768708551777412
+        },
+        "e_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768708554094476,
+          "exit_ns": 1795768708607675891
+        },
+        "f_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768708563861430,
+          "exit_ns": 1795768708564243332
+        },
+        "g_medium": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768708568084075,
+          "exit_ns": 1795768708619969624
+        },
+        "h_short": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768708610561489,
+          "exit_ns": 1795768708610878704
+        }
+      },
+      "peak_simultaneous_guest_invocations": {
+        "75496ecb452c018a36d3be68e0b01d1a": 1,
+        "0911197e5598074a1d163efb4287e99e": 1
+      },
+      "ms_double_on_one_worker_other_idle": 0.0,
+      "counts": {
+        "passed": 8,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "kind": "before",
+      "suite_elapsed_ms": 1394,
+      "cli_wall_ms": 1453.893,
+      "guest": {
+        "a_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768708682474907,
+          "exit_ns": 1795768709951429621
+        },
+        "b_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768708682418794,
+          "exit_ns": 1795768708682723612
+        },
+        "c_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768708689153901,
+          "exit_ns": 1795768709948657300
+        },
+        "d_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768709959414896,
+          "exit_ns": 1795768709959704012
+        },
+        "e_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768709958521029,
+          "exit_ns": 1795768710060925733
+        },
+        "f_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768709962629284,
+          "exit_ns": 1795768709962964064
+        },
+        "g_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768709965149619,
+          "exit_ns": 1795768710067633608
+        },
+        "h_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768710067105238,
+          "exit_ns": 1795768710067438982
+        }
+      },
+      "peak_simultaneous_guest_invocations": {
+        "75496ecb452c018a36d3be68e0b01d1a": 2,
+        "0911197e5598074a1d163efb4287e99e": 1
+      },
+      "ms_double_on_one_worker_other_idle": 1355.279513,
+      "counts": {
+        "passed": 8,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "kind": "after",
+      "suite_elapsed_ms": 1134,
+      "cli_wall_ms": 1210.586,
+      "guest": {
+        "a_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768710143162862,
+          "exit_ns": 1795768710765112507
+        },
+        "b_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768710143175853,
+          "exit_ns": 1795768710143489363
+        },
+        "c_long": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768710145755560,
+          "exit_ns": 1795768711257546867
+        },
+        "d_short": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768710857631124,
+          "exit_ns": 1795768710858017863
+        },
+        "e_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768710861087417,
+          "exit_ns": 1795768710914175497
+        },
+        "f_short": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768710917225567,
+          "exit_ns": 1795768710917608184
+        },
+        "g_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768710920160821,
+          "exit_ns": 1795768710985670485
+        },
+        "h_short": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768710989568916,
+          "exit_ns": 1795768710989986026
+        }
+      },
+      "peak_simultaneous_guest_invocations": {
+        "75496ecb452c018a36d3be68e0b01d1a": 1,
+        "0911197e5598074a1d163efb4287e99e": 1
+      },
+      "ms_double_on_one_worker_other_idle": 0.0,
+      "counts": {
+        "passed": 8,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "kind": "before",
+      "suite_elapsed_ms": 1371,
+      "cli_wall_ms": 1447.512,
+      "guest": {
+        "a_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768711368304651,
+          "exit_ns": 1795768712609140216
+        },
+        "b_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768711368302955,
+          "exit_ns": 1795768711368608168
+        },
+        "c_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768711374809293,
+          "exit_ns": 1795768712596306976
+        },
+        "d_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768712618721018,
+          "exit_ns": 1795768712619042393
+        },
+        "e_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768712617693360,
+          "exit_ns": 1795768712717138769
+        },
+        "f_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768712627059680,
+          "exit_ns": 1795768712627406302
+        },
+        "g_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768712633274684,
+          "exit_ns": 1795768712728591418
+        },
+        "h_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768712719812240,
+          "exit_ns": 1795768712720163540
+        }
+      },
+      "peak_simultaneous_guest_invocations": {
+        "75496ecb452c018a36d3be68e0b01d1a": 2,
+        "0911197e5598074a1d163efb4287e99e": 1
+      },
+      "ms_double_on_one_worker_other_idle": 1305.361768,
+      "counts": {
+        "passed": 8,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "kind": "before",
+      "suite_elapsed_ms": 1372,
+      "cli_wall_ms": 1436.786,
+      "guest": {
+        "a_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768712799713012,
+          "exit_ns": 1795768714039380162
+        },
+        "b_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768712799316739,
+          "exit_ns": 1795768712799621556
+        },
+        "c_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768712807270554,
+          "exit_ns": 1795768714040799598
+        },
+        "d_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768714054151483,
+          "exit_ns": 1795768714054448695
+        },
+        "e_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768714053318204,
+          "exit_ns": 1795768714150637602
+        },
+        "f_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768714057574055,
+          "exit_ns": 1795768714058052334
+        },
+        "g_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768714066084376,
+          "exit_ns": 1795768714162411085
+        },
+        "h_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768714153945691,
+          "exit_ns": 1795768714154262921
+        }
+      },
+      "peak_simultaneous_guest_invocations": {
+        "75496ecb452c018a36d3be68e0b01d1a": 2,
+        "0911197e5598074a1d163efb4287e99e": 1
+      },
+      "ms_double_on_one_worker_other_idle": 1316.662834,
+      "counts": {
+        "passed": 8,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    },
+    {
+      "kind": "after",
+      "suite_elapsed_ms": 683,
+      "cli_wall_ms": 746.325,
+      "guest": {
+        "a_long": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768714245736826,
+          "exit_ns": 1795768714852928277
+        },
+        "b_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768714245621794,
+          "exit_ns": 1795768714245964352
+        },
+        "c_long": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768714248165198,
+          "exit_ns": 1795768714837370780
+        },
+        "d_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768714842781855,
+          "exit_ns": 1795768714843098115
+        },
+        "e_medium": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768714845317079,
+          "exit_ns": 1795768714897510178
+        },
+        "f_short": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768714859849172,
+          "exit_ns": 1795768714860198873
+        },
+        "g_medium": {
+          "peer": "75496ecb452c018a36d3be68e0b01d1a",
+          "enter_ns": 1795768714862344843,
+          "exit_ns": 1795768714917097997
+        },
+        "h_short": {
+          "peer": "0911197e5598074a1d163efb4287e99e",
+          "enter_ns": 1795768714899938727,
+          "exit_ns": 1795768714900255956
+        }
+      },
+      "peak_simultaneous_guest_invocations": {
+        "75496ecb452c018a36d3be68e0b01d1a": 1,
+        "0911197e5598074a1d163efb4287e99e": 1
+      },
+      "ms_double_on_one_worker_other_idle": 0.0,
+      "counts": {
+        "passed": 8,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      }
+    }
+  ],
+  "source_signed_suite_id": "392428f3bbc92ff693fbcd2d71dda62c/seeded-lengths@0.1.0",
+  "summary": {
+    "before": {
+      "all_suite_elapsed_ms": [
+        1394,
+        1394,
+        1371,
+        1372
+      ],
+      "median_suite_elapsed_ms": 1383.0,
+      "all_double_one_other_idle_ms": [
+        1331.225299,
+        1355.279513,
+        1305.361768,
+        1316.662834
+      ],
+      "max_parallel_guest_invocations_per_peer": [
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "after": {
+      "all_suite_elapsed_ms": [
+        689,
+        707,
+        1134,
+        683
+      ],
+      "median_suite_elapsed_ms": 698.0,
+      "all_double_one_other_idle_ms": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "max_parallel_guest_invocations_per_peer": [
+        1,
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  "exit_code": 0,
+  "source_after": "sha256:b65a7bd226264bd85b84fca929676a8cb5be88dd6ee188e3b2e30d9f2cb9ab4b",
+  "finished_utc": "2026-11-27T08:38:35.168484+00:00"
+}
