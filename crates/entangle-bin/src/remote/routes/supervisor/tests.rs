@@ -30,13 +30,30 @@ async fn outbound_handle_uses_the_new_generation_without_resubmitting_jobs() {
         TailnetTransport::close(stable.withdraw(EndpointState::Recovering)).await;
         assert!(stable.local_addrs().is_empty());
         assert!(stable.request(&peer, b"while offline").await.is_err());
+        // Iroh drops the underlying UDP socket asynchronously. Production recovery backs
+        // off while the exact port is busy. Wait only for that transient bind condition;
+        // no request or assertion is retried.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                match std::net::UdpSocket::bind(bound) {
+                    Ok(_released) => break,
+                    Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                        tokio::time::sleep(Duration::from_millis(20)).await;
+                    }
+                    Err(error) => panic!("checking released UDP address {bound}: {error}"),
+                }
+            }
+        })
+        .await
+        .expect("the retired scheduler endpoint releases its UDP socket");
         let next = bind_scheduler(bound, false, &identity).await.unwrap();
         assert!(stable.publish(next));
         assert_eq!(stable.local_addrs(), [bound]);
         assert_eq!(stable.request(&peer, b"second").await.unwrap(), b"second");
         assert_eq!(calls.load(Ordering::SeqCst), 2);
         stable.shutdown().await;
-        let late = bind_scheduler(bound, false, &identity).await.unwrap();
+        // Stopped rejects publication of any endpoint, independently of its address.
+        let late = bind_scheduler(local, false, &identity).await.unwrap();
         assert!(!stable.publish(late));
         assert!(stable.accept().await.unwrap().is_none());
         worker.shutdown().await;

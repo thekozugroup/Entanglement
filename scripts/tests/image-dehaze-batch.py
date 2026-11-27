@@ -310,6 +310,10 @@ def exercise(binaries, wasm, b3sum=None):
     verify_png_oracle()
     with tempfile.TemporaryDirectory(prefix="ent-dehaze-test-") as tmp, ExitStack() as stack:
         root = Path(tmp)
+        if b3sum is not None:
+            vector = root / "blake3-vector"
+            vector.write_bytes(b"abc")
+            verify_blake3(b3sum, vector, "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85")
         coordinator, workers, plugin = start_cluster(binaries, wasm, root, stack)
         source = root / "inputs"
         source.mkdir()
@@ -529,6 +533,7 @@ def exercise(binaries, wasm, b3sum=None):
                 "malformed_raw_and_peer_recovery": True,
                 "oversized_raw_and_directory_depth_refused": True,
                 "independent_blake3_receipts_checked": b3sum is not None,
+                "independent_blake3_tool_sha256": sha(b3sum) if b3sum is not None else None,
                 "scope": "two local authenticated worker daemons; not a multi-host benchmark"}
 
 

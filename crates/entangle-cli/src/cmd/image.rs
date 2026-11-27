@@ -18,6 +18,7 @@ use entangle_rpc::{
 use entangle_types::{peer_id::PeerId, plugin_id::PluginId, task::OneShotTask};
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
     ffi::{OsStr, OsString},
     fs::File,
@@ -124,7 +125,24 @@ struct Batch {
 
 pub async fn run(args: ImageArgs) -> Result<()> {
     match args.cmd {
-        ImageCmd::Dehaze(args) => run_dehaze(args).await,
+        ImageCmd::Dehaze(args) => run_dehaze(args).await.map_err(terminal_error),
+    }
+}
+
+// The JSON encoder already quotes controls. Plain terminal output must keep each photo
+// on one line even when a filename or a chained error contains control characters.
+fn terminal_text(text: &str) -> Cow<'_, str> {
+    if text.chars().any(char::is_control) {
+        Cow::Owned(format!("{text:?}"))
+    } else {
+        Cow::Borrowed(text)
+    }
+}
+
+fn terminal_error(error: anyhow::Error) -> anyhow::Error {
+    match terminal_text(&format!("{error:#}")) {
+        Cow::Owned(escaped) => anyhow::Error::msg(escaped),
+        Cow::Borrowed(_) => error,
     }
 }
 
@@ -214,7 +232,7 @@ async fn run_dehaze(args: DehazeArgs) -> Result<()> {
                         },
                     )?;
                 } else {
-                    writeln!(stdout, "{status} {}", receipt.output)?;
+                    writeln!(stdout, "{status} {}", terminal_text(&receipt.output))?;
                 }
             }
             Err(error) => {
@@ -228,7 +246,11 @@ async fn run_dehaze(args: DehazeArgs) -> Result<()> {
                         }),
                     )?;
                 } else {
-                    eprintln!("{}: {error:#}", relative.display());
+                    eprintln!(
+                        "{}: {}",
+                        terminal_text(&relative.to_string_lossy()),
+                        terminal_text(&format!("{error:#}")),
+                    );
                 }
             }
         }
@@ -493,5 +515,29 @@ impl Batch {
             .with_context(|| format!("validating tile {} from {peer}", tile.ordinal))?;
         workers[tile.ordinal] = peer;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ordinary_filenames_stay_readable_and_control_characters_cannot_escape_a_row() {
+        let ordinary = "fête/portrait (01).dng";
+        assert_eq!(terminal_text(ordinary), ordinary);
+        let unusual = "test\nphoto\t\u{1b}\u{85}.dng";
+        let shown = terminal_text(unusual);
+        assert!(shown.contains(r"\n") && shown.contains(r"\t"));
+        assert!(!shown.chars().any(char::is_control));
+
+        let error = anyhow::anyhow!("cannot open {unusual}").context("loading input");
+        let rendered = format!("{:#}", terminal_error(error));
+        assert!(rendered.contains("loading input") && rendered.contains("cannot open"));
+        assert!(!rendered.chars().any(char::is_control));
+        assert_eq!(
+            serde_json::from_str::<String>(&serde_json::to_string(unusual).unwrap()).unwrap(),
+            unusual
+        );
     }
 }
