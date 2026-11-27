@@ -20,47 +20,24 @@ A PGP key will be linked here once published; until then, plaintext email is acc
 
 ## Scope
 
-**In scope (Phase 1):**
-- `entangle-runtime`, `entangle-host`, `entangle-broker` — kernel and capability enforcement.
-- `entangle-signing` — Ed25519 publisher signing, keyring, artifact verification.
-- `entangle-manifest` — manifest parsing and tier validation.
-- `entangle-cli` and `entangled` daemon — local-only mode (UDS RPC).
+Report suspected vulnerabilities in the code shipped by this repository, including the following components.
 
-**Out of scope (Phase 2+):**
-- Mesh transports (`mesh.local`, `mesh.iroh`, `mesh.tailscale`) — not implemented yet.
-- Distributed compute scheduler — not implemented yet.
-- Agent host plugin (Claude Code/Codex MCP gateway) — not implemented yet.
-- Integrity policies (`Deterministic`, `SemanticEquivalent`, `TrustedExecutor`, `Attested`) — types only at present.
+- Signed plugin packaging, the publisher keyring, local and OCI installation, and release verification.
+- The manifest validator, Wasmtime host, capability broker, daemon socket, and backup and recovery commands.
+- Pairing, peer discovery, the optional tailnet adapter, authenticated QUIC work, bridge delegation, and the distributed scheduler.
+- Streaming tasks, replica verification, and the optional host-configured inference provider.
 
-Reports against unimplemented features are welcome but will be tracked as design issues, not security advisories.
+Include the transport, trust role, operating system, and relevant configuration when they affect the report. Use a fresh test identity in any material you share. Design concerns about proposed features are also welcome.
 
-## Defense in depth
+## Security boundaries
 
-Per spec §3.6 the primary trust root is the publisher Ed25519 key in the user's keyring; sigstore/cosign signatures are added on release artifacts as a secondary check. Both must verify before a plugin loads.
+The kernel verifies a plugin package with a trusted Ed25519 publisher key. The separate `entangle release verify` command checks the publisher signature on a release archive and its Sigstore bundle against the expected release workflow and tag. Operators need an independently trusted release publisher key. [Release verification](./docs/install.md)
 
-Per spec §11 #16 the daemon refuses to start in multi-node mode without a populated peer allowlist; single-node mode is permitted with no allowlist.
+The daemon checks its configured peer allowlist at multi-node startup. Discovery can supply an address. Remote work also requires an authenticated peer with a permitted role. A bridge grant binds the destination and includes rate, cumulative byte, and expiry limits. [Bridge authorization](./docs/testing/bridge-authorization.md)
 
-## Threat model summary
+The package loader executes supported WebAssembly components under Wasmtime. The optional tier-5 inference provider connects to an operator-configured local service. That service runs with the isolation and permissions of its own process. The OS sandbox check in `entangle doctor` reports host capabilities. Native agent-host execution still requires a sandboxed supervisor. Set `[security] max_tier_allowed` in the daemon configuration to limit the permitted tier. [Operational controls](./docs/operations.md)
 
-The full threat model is in `docs/architecture.md` §11; the highlights:
-
-- **Trust roots:** Ed25519 publisher key in the operator's keyring (primary)
-  plus sigstore/cosign signatures on release tarballs (secondary). Both must
-  verify before a plugin loads.
-- **Primary attacker classes:** a malicious plugin publisher; a malicious peer
-  on the mesh; a malicious local user with shell access on the same host.
-- **Explicit non-goals:** the runtime does **not** defend against an attacker
-  who already has root on the same host, nor against side-channel attacks
-  between plugins co-tenanted on the same OS sandbox primitive. Tier-5 is an
-  honest escape hatch — it sits behind Landlock/Seatbelt and can be disabled
-  globally with `plugin.max_tier_allowed = 4`.
-- **Cross-node tokens** use biscuit-auth; tokens can only ever attenuate,
-  never widen — enforced by `entangle-biscuits::verify_bridge` plus the
-  five mandatory bridge-attenuation facts (`dest_pin`, `rate_limit`,
-  `total_bytes_cap`, `ttl_le_3600s`, `bridge_marker`).
-- **Rate limiting** is a deliberate non-goal at the runtime layer: the
-  daemon does not throttle peers. Operators wanting per-peer fairness
-  install it as a `mesh.policy` plugin.
+The threat model covers untrusted plugin publishers, untrusted peers, and unprivileged local users. Host root compromise and side channels between co-tenants are outside the isolation guarantee. [Threat model](./docs/architecture.md)
 
 ## Acknowledgement
 
