@@ -1,0 +1,14 @@
+{
+  "command": "cargo-deny --locked --all-features --manifest-path <probe>/Cargo.toml check --disable-fetch --config <candidate>/dependency-policy.toml advisories bans licenses sources",
+  "exit_code": 0,
+  "initial_exit_code": 4,
+  "initial_failure": "probe lacked a license declaration; Apache-2.0 license was added and the check rerun",
+  "policy": "docs/testing/production-review/evidence/candidate-864ae27b/dependency-policy.toml",
+  "policy_sha256": "caad722725576195023b58346b7730b85af66f7e05b5b4c46bee960544db4932",
+  "log_sha256": "562683b52f73f49b3d3c417ab492fe2069389112520e1dbcd358618414ec1a12",
+  "initial_failure_log_sha256": "f70b5186c2305ae7dd55ece6109593e8320a55ec100dbeaee8d75ddff14dafdf",
+  "lock_sha256": "61bc8a6aa2d982a40b6cea1993e95529bec90f5ada52146c25c04e1b56fc23f3",
+  "manifest_sha256": "275c15c9153eff1d5adf616ec4ae2b71d551087e7c69e1386a4ef8bcb444dfde",
+  "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "observed_utc": "2026-11-27T03:17:21.980758+00:00"
+}

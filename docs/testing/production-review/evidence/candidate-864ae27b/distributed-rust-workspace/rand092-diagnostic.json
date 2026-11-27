@@ -1,0 +1,64 @@
+{
+  "upstream": "https://github.com/rust-random/rand.git",
+  "revision": "98473ee6f9b44eb85154b59b67adade7f2a9b8a1",
+  "license": "MIT OR Apache-2.0",
+  "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "candidate": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "native_result": {
+    "unit_integration_passed": 132,
+    "doctest_passed": 65,
+    "doctest_ignored": 4,
+    "exit_code": 0
+  },
+  "wasi_distributed_summary": {
+    "passed": 126,
+    "flaky": 0,
+    "failed": 0,
+    "ignored": 0,
+    "error": 4
+  },
+  "artifacts": 8,
+  "members": 4,
+  "native_wasi_test_name_difference": {
+    "rand": {
+      "native_only": [
+        "distr::integer::tests::x86_integers",
+        "distr::uniform::float::tests::test_float_assertions",
+        "rngs::xoshiro256plusplus::tests::reference",
+        "rngs::xoshiro256plusplus::tests::stable_seed_from_u64_and_from_seed"
+      ],
+      "wasi_only": [
+        "rngs::xoshiro128plusplus::tests::reference",
+        "rngs::xoshiro128plusplus::tests::stable_seed_from_u64_and_from_seed"
+      ]
+    }
+  },
+  "same_status_required": true,
+  "classification": "partial, full workload C not demonstrated",
+  "diagnostic_notes": [
+    "All WASI libtest artifacts were signed and run on two authenticated workers. The previous injected flaky fixture was not used. Four upstream tests use should_panic; under the target panic-abort harness each returned one ignored case and no passed case. The sharder classified it as an error on both peers. No genuine flaky transition occurred.",
+    "The ordinary native cargo test --workspace also ran 69 doctests. The published libtest driver only enumerates Cargo executable artifacts."
+  ],
+  "archives": [
+    {
+      "name": "rand092-remote.json.gz",
+      "uncompressed_sha256": "c115a318a0042384632048eae08481263a44ee927f4a805ec25d0fc63fb9b113"
+    },
+    {
+      "name": "rand092-native.log.gz",
+      "uncompressed_sha256": "aea3f78861f208e1effddeacfe46fa5f09b8d25b6c91143e930975242fa75f3f"
+    },
+    {
+      "name": "rand092-native-list.json.gz",
+      "uncompressed_sha256": "d560d9f8b6ad045c7f2c6ff949a1047455586a6a24722bf9654f06577ee731b0"
+    },
+    {
+      "name": "rand092-Cargo.lock.gz",
+      "uncompressed_sha256": "932c6426ebfee689aa311b17d5862174a7e1c337a0da487c20a061ad518747b3"
+    },
+    {
+      "name": "entanglement-full-wasi-no-run.log.gz",
+      "uncompressed_sha256": "61756d1525677390e05c841b72930cbcee32ef6c5520cd20715d95edd4be2399"
+    }
+  ]
+}

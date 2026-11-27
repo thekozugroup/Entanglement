@@ -1,0 +1,51 @@
+{
+  "source_before": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_after": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "started_utc": "2026-11-27T03:16:45.213214+00:00",
+  "finished_utc": "2026-11-27T03:16:45.783272+00:00",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "binaries_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "5e11e7af5eae74c8cbec3f140e7322b98b9f5910cdb8cd269b53f9ae6d2b73f9"
+  },
+  "plugin_id": "49c643f6b496106184315eb0a175ce0f/fs-probe@0.1.0",
+  "signed_plugin_signature_sha256": "479fcc1f5169b25a5099d0ef488049c9a09dee90d69be075ef87958bd318a4ad",
+  "installed_component_sha256": "42ccf941271d29890bd72fd0a491fc0e527a364fe26c3675d8f341d1ae4a5d80",
+  "runner_sha256": "e18fbd490fd4c8c4e0b17a69a3e45995d9caeb673682b5d05fed815f7e4d79bc",
+  "guest_wasm_sha256": "42ccf941271d29890bd72fd0a491fc0e527a364fe26c3675d8f341d1ae4a5d80",
+  "guest_source_sha256": "89a6efdb85b9635acb3dd0f2a43496e11e8961dc43a30e0aa849d2dac3301b08",
+  "guest_lock_sha256": "61bc8a6aa2d982a40b6cea1993e95529bec90f5ada52146c25c04e1b56fc23f3",
+  "fixture_before": {
+    "directory_mode": 448,
+    "names": [
+      "fixture-link",
+      "fixture.txt"
+    ],
+    "file_sha256": "286a39009c6c3b6fc816391bc0d193337263b85f318aa81e2fb56ae0b45e4920",
+    "file_mode": 384,
+    "link_target": "fixture.txt"
+  },
+  "fixture_after": {
+    "directory_mode": 448,
+    "names": [
+      "fixture-link",
+      "fixture.txt"
+    ],
+    "file_sha256": "286a39009c6c3b6fc816391bc0d193337263b85f318aa81e2fb56ae0b45e4920",
+    "file_mode": 384,
+    "link_target": "fixture.txt"
+  },
+  "guest_report": {
+    "preopen_count": "0",
+    "root_metadata": "false",
+    "root_read_dir": "false",
+    "file_metadata": "false",
+    "file_read": "false",
+    "link_metadata": "false",
+    "link_read": "false",
+    "trailing_slash_metadata": "false"
+  },
+  "operations": "Read-only metadata, directory enumeration, file read, symlink metadata/readlink, trailing slash metadata. No write, rename, escape attempt or credentials.",
+  "limitations": "Linux x86_64 optimized candidate only; no filesystem preopens, no granted-root permissions test, no rename test and no macOS. Host fixture path is synthetic.",
+  "exit_code": 0
+}

@@ -1,0 +1,50 @@
+Headscale updated and read back allowed UDP ports [7444, 7443]
+allow-7443 verified remote output 324.048
+Headscale updated and read back allowed UDP ports [7444]
+deny-7443 verified remote output 181.468
+deny-7443 verified remote output 288.409
+deny-7443 verified remote output 181.77
+deny-7443 verified remote output 177.937
+deny-7443 verified remote output 326.309
+deny-7443 verified remote output 189.404
+deny-7443 verified remote output 230.312
+deny-7443 verified remote output 426.522
+deny-7443 verified remote output 172.832
+deny-7443 verified remote output 237.505
+deny-7443 verified remote output 297.57
+deny-7443 verified remote output 210.101
+deny-7443 verified remote output 249.239
+deny-7443 verified remote output 188.227
+deny-7443 verified remote output 350.253
+deny-7443 verified remote output 215.572
+deny-7443 verified remote output 426.294
+deny-7443 verified remote output 320.516
+deny-7443 verified remote output 319.946
+deny-7443 verified remote output 271.492
+deny-7443 verified remote output 530.553
+deny-7443 verified remote output 261.796
+deny-7443 verified remote output 176.509
+deny-7443 verified remote output 231.959
+deny-7443 verified remote output 198.333
+deny-7443 verified remote output 190.955
+deny-7443 verified remote output 206.482
+deny-7443 verified remote output 237.5
+deny-7443 verified remote output 191.612
+deny-7443 verified remote output 262.0
+deny-7443 verified remote output 186.644
+deny-7443 verified remote output 278.939
+deny-7443 verified remote output 375.654
+deny-7443 verified remote output 404.993
+deny-7443 verified remote output 639.893
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 346, in <module>
+    main()
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 335, in main
+    measurements=run_check(Path(root),clean,bins,wasm)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 279, in run_check
+    denied=wait(lambda:denial("deny-7443"),30)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 55, in wait
+    raise RuntimeError(f"condition failed to converge in {limit}s: {last}")
+RuntimeError: condition failed to converge in 30s: None

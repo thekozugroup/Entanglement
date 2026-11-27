@@ -1,0 +1,101 @@
+warning[no-license-field]: license expression was not specified in manifest for crate 'fs-conformance-probe = 0.1.0'
+ ├ fs-conformance-probe v0.1.0
+
+warning[unlicensed]: a valid license expression could not be retrieved for the crate
+  ┌─ path+file:///workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe#fs-conformance-probe@0.1.0-synthesized.toml:2:9
+  │
+2 │ name = "fs-conformance-probe"
+  │         ━━━━━━━━━━━━━━━━━━━━
+  │
+  ├ fs-conformance-probe v0.1.0 (*)
+
+error[unlicensed]: fs-conformance-probe = 0.1.0 is unlicensed
+ ├ fs-conformance-probe v0.1.0 (*)
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/dependency-policy.toml:29:6
+   │
+29 │     "0BSD",
+   │      ━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/dependency-policy.toml:24:6
+   │
+24 │     "BSD-2-Clause",
+   │      ━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/dependency-policy.toml:25:6
+   │
+25 │     "BSD-3-Clause",
+   │      ━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/dependency-policy.toml:32:6
+   │
+32 │     "CDLA-Permissive-2.0",
+   │      ━━━━━━━━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/dependency-policy.toml:26:6
+   │
+26 │     "ISC",
+   │      ━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/dependency-policy.toml:31:6
+   │
+31 │     "MPL-2.0",
+   │      ━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/dependency-policy.toml:27:6
+   │
+27 │     "Unicode-DFS-2016",
+   │      ━━━━━━━━━━━━━━━━ unmatched license allowance
+
+warning[duplicate]: found 2 duplicate entries for crate 'syn'
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.lock:36:1
+   │  
+36 │ ╭ syn 2.0.119 registry+https://github.com/rust-lang/crates.io-index
+37 │ │ syn 3.0.10 registry+https://github.com/rust-lang/crates.io-index
+   │ ╰────────────────────────────────────────────────────────────────┘ lock entries
+   │  
+   ├ syn v2.0.119
+     ├── prettyplease v0.2.37
+     │   ├── wit-bindgen-rust v0.57.1
+     │   │   └── wit-bindgen-rust-macro v0.57.1
+     │   │       └── wit-bindgen v0.57.1
+     │   │           ├── entangle-sdk v0.1.0
+     │   │           │   └── fs-conformance-probe v0.1.0
+     │   │           └── wasip2 v1.0.3+wasi-0.2.9
+     │   │               └── fs-conformance-probe v0.1.0 (*)
+     │   └── wit-bindgen-rust-macro v0.57.1 (*)
+     ├── wit-bindgen-rust v0.57.1 (*)
+     └── wit-bindgen-rust-macro v0.57.1 (*)
+   ├ syn v3.0.10
+     ├── serde_derive v1.0.229
+     │   ├── serde v1.0.229
+     │   │   ├── entangle-sdk v0.1.0
+     │   │   │   └── fs-conformance-probe v0.1.0
+     │   │   ├── entangle-types v0.1.0
+     │   │   │   └── entangle-sdk v0.1.0 (*)
+     │   │   ├── wit-component v0.247.0
+     │   │   │   └── wit-bindgen-rust v0.57.1
+     │   │   │       └── wit-bindgen-rust-macro v0.57.1
+     │   │   │           └── wit-bindgen v0.57.1
+     │   │   │               ├── entangle-sdk v0.1.0 (*)
+     │   │   │               └── wasip2 v1.0.3+wasi-0.2.9
+     │   │   │                   └── fs-conformance-probe v0.1.0 (*)
+     │   │   └── wit-parser v0.247.0
+     │   │       ├── wit-bindgen-core v0.57.1
+     │   │       │   ├── wit-bindgen-rust v0.57.1 (*)
+     │   │       │   └── wit-bindgen-rust-macro v0.57.1 (*)
+     │   │       └── wit-component v0.247.0 (*)
+     │   ├── wit-component v0.247.0 (*)
+     │   └── wit-parser v0.247.0 (*)
+     └── thiserror-impl v2.0.21
+         └── thiserror v2.0.21
+             └── entangle-types v0.1.0 (*)
+
+advisories ok, bans ok, licenses FAILED, sources ok

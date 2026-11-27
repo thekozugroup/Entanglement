@@ -1,0 +1,60 @@
+{
+  "revision": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "source_before": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_after": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "upstream": "https://github.com/rust-random/rngs",
+  "upstream_revision": "aeaa3f312f915fdf72f0d43af6a84197b079bf81",
+  "upstream_licenses": "MIT OR Apache-2.0",
+  "upstream_was_modified": false,
+  "dependency_lock_sha256": "3192202a77857b38733c7594a9a67a8d2970d51c6176487b48c83578c58ea888",
+  "candidate_daemon_sha256": "5e11e7af5eae74c8cbec3f140e7322b98b9f5910cdb8cd269b53f9ae6d2b73f9",
+  "candidate_cli_sha256": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+  "host": "Debian Linux x86_64 VM; one coordinator and two separate authenticated loopback QUIC worker identities",
+  "toolchain": "rustc/cargo 1.91.1; wasm32-wasip2",
+  "distributed_command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--target",
+    "wasm32-wasip2",
+    "--no-fail-fast"
+  ],
+  "native_command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "started_utc": "2026-11-27T03:20:15Z",
+  "finished_utc": "2026-11-27T03:21:45Z",
+  "remote_elapsed_seconds": 90.37790599600339,
+  "native_exit": 0,
+  "distributed_exit": 0,
+  "uncompressed_sha256": {
+    "rngs-distributed.json.gz": "56893d393a5f9ba7f50a0b2ff5dc0da8a645342198396e9f6f4197f9e14d3178",
+    "rngs-distributed-cargo.log.gz": "ea93c24be903b42dffe4c7ca8a8bea279720316d88cb5da6059996c1f2359bc8",
+    "rngs-native-cargo.log.gz": "f7b29388750142b12867305dfa04ef35266177f06f06a4a9fd80a922aeddaa1c"
+  },
+  "case_counts": {
+    "unit_and_integration": {
+      "passed": 198
+    },
+    "doctests": {
+      "passed": 24,
+      "ignored": 2
+    }
+  },
+  "workers": {
+    "7b63f3e7792bbfca2abaaa46ff5ecee8": 121,
+    "f073d815dd3b7e18f209030f782b0a1d": 101
+  },
+  "real_flaky_transitions": 0,
+  "upstream_bytes_excluded": true,
+  "competency": "Entire real upstream workspace and aggregate oracle parity demonstrated. Actual naturally occurring flaky-test transitions have not been demonstrated."
+}

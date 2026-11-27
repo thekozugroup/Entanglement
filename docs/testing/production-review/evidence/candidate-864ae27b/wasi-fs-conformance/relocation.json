@@ -1,0 +1,13 @@
+{
+  "command": "cargo metadata --locked --offline --format-version 1 --manifest-path <alternate-checkout>/docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.toml",
+  "exit_code": 0,
+  "working_directory": "/tmp",
+  "checkout_commit": "2ff0b6576a82c0852c3a84402a68871f1b8b2b12",
+  "alternate_root": "/tmp/entangle-probe-relocated",
+  "resolved_sdk_manifest": "/tmp/entangle-probe-relocated/crates/entangle-sdk/Cargo.toml",
+  "tracked_sdk_files_compared": 5,
+  "differing_sdk_files": [],
+  "same_probe_lock_sha256": "61bc8a6aa2d982a40b6cea1993e95529bec90f5ada52146c25c04e1b56fc23f3",
+  "metadata_sha256": "f9c840bb9f303ad1f2999fbc1cecef46e456e59a113782381d354ffa87dda027",
+  "observed_utc": "2026-11-27T03:17:21.916051+00:00"
+}

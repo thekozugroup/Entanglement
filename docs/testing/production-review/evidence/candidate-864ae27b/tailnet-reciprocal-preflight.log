@@ -1,0 +1,44 @@
+Headscale updated and read back allowed UDP ports [7444]
+Headscale updated and read back allowed UDP ports [7444, 7443]
+Headscale updated and read back allowed UDP ports [7444]
+scheduler-blocked-by-initial-port-policy dispatch error: placement: no live workers in pool 197.612
+Headscale updated and read back allowed UDP ports [7444, 7443]
+allow-7443 verified remote output 274.035
+worker-tailscaled-stopped dispatch error: ENTANGLE-E0402: remote dispatch to peer 1bb7814049c5cb1acc0a23e6c2c5545d failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11225.117
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer 1bb7814049c5cb1acc0a23e6c2c5545d failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11247.364
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer 1bb7814049c5cb1acc0a23e6c2c5545d failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11181.973
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer 1bb7814049c5cb1acc0a23e6c2c5545d failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11173.708
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer 1bb7814049c5cb1acc0a23e6c2c5545d failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11172.386
+transport-service-restarted dispatch error: placement: no live workers in pool 198.771
+transport-service-restarted dispatch error: placement: no live workers in pool 153.34
+transport-service-restarted dispatch error: placement: no live workers in pool 272.479
+transport-service-restarted dispatch error: placement: no live workers in pool 258.512
+transport-service-restarted dispatch error: placement: no live workers in pool 173.994
+transport-service-restarted dispatch error: placement: no live workers in pool 162.871
+transport-service-restarted dispatch error: placement: no live workers in pool 164.788
+transport-service-restarted dispatch error: placement: no live workers in pool 165.013
+transport-service-restarted dispatch error: placement: no live workers in pool 156.249
+transport-service-restarted dispatch error: placement: no live workers in pool 309.844
+transport-service-restarted dispatch error: placement: no live workers in pool 170.418
+transport-service-restarted dispatch error: placement: no live workers in pool 168.455
+transport-service-restarted-after-app-restart-worker dispatch error: placement: no live workers in pool 164.626
+transport-service-restarted-after-app-restart-worker verified remote output 171.373
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 423, in <module>
+    main()
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 412, in main
+    measurements=run_check(Path(root),clean,bins,wasm)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 388, in run_check
+    service("up","--timeout=20s")
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 242, in service
+    return run("docker","exec",worker["name"],"tailscale",*command,check=check)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/scripts/tests/private-tailnet.py", line 68, in run
+    raise RuntimeError(f"{args[0]} exited {result.returncode}: {result.stderr.strip()}")
+RuntimeError: docker exited 1: Error: changing settings via 'tailscale up' requires mentioning all
+non-default flags. To proceed, either re-run your command with --reset or
+use the command below to explicitly mention the current value of
+all non-default settings:
+
+	tailscale up --timeout=20s --accept-dns=false --login-server=https://hs.test --netfilter-mode=off

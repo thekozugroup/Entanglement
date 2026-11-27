@@ -1,0 +1,28 @@
+Headscale updated and read back allowed UDP ports [7444]
+Headscale updated and read back allowed UDP ports [7444, 7443]
+Headscale updated and read back allowed UDP ports [7444]
+scheduler-blocked-by-initial-port-policy dispatch error: placement: no live workers in pool 172.477
+Headscale updated and read back allowed UDP ports [7444, 7443]
+allow-7443 verified remote output 151.211
+worker-tailscaled-stopped dispatch error: ENTANGLE-E0402: remote dispatch to peer a559c7a01356664cd2b4e7a7f1b51653 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11181.038
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer a559c7a01356664cd2b4e7a7f1b51653 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11175.925
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer a559c7a01356664cd2b4e7a7f1b51653 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11185.644
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer a559c7a01356664cd2b4e7a7f1b51653 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11156.561
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer a559c7a01356664cd2b4e7a7f1b51653 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11206.622
+transport-service-restarted dispatch error: placement: no live workers in pool 156.645
+transport-service-restarted dispatch error: placement: no live workers in pool 187.542
+transport-service-restarted dispatch error: placement: no live workers in pool 233.837
+transport-service-restarted dispatch error: placement: no live workers in pool 163.642
+transport-service-restarted dispatch error: placement: no live workers in pool 161.184
+transport-service-restarted dispatch error: placement: no live workers in pool 175.208
+transport-service-restarted dispatch error: placement: no live workers in pool 171.928
+transport-service-restarted dispatch error: placement: no live workers in pool 154.383
+transport-service-restarted dispatch error: placement: no live workers in pool 164.815
+transport-service-restarted dispatch error: placement: no live workers in pool 193.886
+transport-service-restarted dispatch error: placement: no live workers in pool 218.456
+transport-service-restarted dispatch error: placement: no live workers in pool 190.126
+transport-service-restarted-after-app-restart-worker dispatch error: placement: no live workers in pool 157.423
+transport-service-restarted-after-app-restart-worker verified remote output 353.13
+link-up-after-entanglement-revocation dispatch error: ENTANGLE-E0403: peer a559c7a01356664cd2b4e7a7f1b51653 rejected the task (not-authorized): peer is not in this node's trusted peer allowlist 237.422
+operator-repaired-trust verified remote output 178.676
+Receipt SHA-256 8946f50dcf7704095fdcf2b8e332ec1b4b2f6dd81435ece453e0e779a83599be

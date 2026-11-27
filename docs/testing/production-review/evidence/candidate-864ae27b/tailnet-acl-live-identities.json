@@ -1,0 +1,27 @@
+{
+  "utc": "2026-11-27T03:17:06.499237+00:00",
+  "network": "entangle-wg-929fb61bec02",
+  "scheduler_udp_port": 7443,
+  "roles": {
+    "worker": {
+      "local_publisher_public_keys": [
+        {
+          "public_key_hex": "3dd8212abf249d270f414959f8f0e6ed205972f5fbefd9a013a773d919514665",
+          "fingerprint": "a559c7a01356664cd2b4e7a7f1b51653"
+        }
+      ],
+      "netns": "net:[4026532481]",
+      "host_pid": 441295
+    },
+    "coordinator": {
+      "local_publisher_public_keys": [
+        {
+          "public_key_hex": "040a365c576ee252f34222985ee08b44b0563cd6192bc5a0042313e4ea74d92c",
+          "fingerprint": "5f0a9e28ef31e6c85880d3cec2dd812b"
+        }
+      ],
+      "netns": "net:[4026532565]",
+      "host_pid": 434925
+    }
+  }
+}

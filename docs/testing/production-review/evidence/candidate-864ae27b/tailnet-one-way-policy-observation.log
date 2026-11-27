@@ -1,0 +1,36 @@
+Headscale updated and read back allowed UDP ports [7444]
+Headscale updated and read back allowed UDP ports [7444, 7443]
+Headscale updated and read back allowed UDP ports [7444]
+scheduler-blocked-by-initial-port-policy dispatch error: placement: no live workers in pool 187.902
+Headscale updated and read back allowed UDP ports [7444, 7443]
+allow-7443 verified remote output 204.018
+worker-tailscaled-stopped dispatch error: ENTANGLE-E0402: remote dispatch to peer 61dec91fff9cadb583493a19470b3ce6 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11242.81
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer 61dec91fff9cadb583493a19470b3ce6 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11226.116
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer 61dec91fff9cadb583493a19470b3ce6 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11232.063
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer 61dec91fff9cadb583493a19470b3ce6 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11333.933
+transport-service-restarted dispatch error: ENTANGLE-E0402: remote dispatch to peer 61dec91fff9cadb583493a19470b3ce6 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead) 11164.777
+transport-service-restarted dispatch error: placement: no live workers in pool 229.786
+transport-service-restarted dispatch error: placement: no live workers in pool 165.311
+transport-service-restarted dispatch error: placement: no live workers in pool 188.525
+transport-service-restarted dispatch error: placement: no live workers in pool 256.212
+transport-service-restarted dispatch error: placement: no live workers in pool 170.608
+transport-service-restarted dispatch error: placement: no live workers in pool 174.784
+transport-service-restarted dispatch error: placement: no live workers in pool 191.804
+transport-service-restarted dispatch error: placement: no live workers in pool 184.694
+transport-service-restarted dispatch error: placement: no live workers in pool 151.468
+transport-service-restarted dispatch error: placement: no live workers in pool 179.804
+transport-service-restarted dispatch error: placement: no live workers in pool 176.328
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 380, in <module>
+    main()
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 369, in main
+    measurements=run_check(Path(root),clean,bins,wasm)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 337, in run_check
+    successful("transport-service-restarted")
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 300, in successful
+    return wait(lambda: (v if "chosen_peer" in (v:=dispatch(label)) else None),55)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/tailnet-acl-recovery.py", line 55, in wait
+    raise RuntimeError(f"condition failed to converge in {limit}s: {last}")
+RuntimeError: condition failed to converge in 55s: None

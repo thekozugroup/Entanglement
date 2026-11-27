@@ -1,0 +1,743 @@
+{
+  "before": {
+    "working_commit": "2ff0b6576a82c0852c3a84402a68871f1b8b2b12",
+    "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+    "candidate_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+    "binary_sha256": {
+      "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+      "entangled": "5e11e7af5eae74c8cbec3f140e7322b98b9f5910cdb8cd269b53f9ae6d2b73f9"
+    },
+    "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+    "driver_sha256": "2800599d20f989dcb7c79d6e3ce9ee880ab4683b57a4141d60c50b7643db529f",
+    "base_driver_sha256": "aad63b75c8f89f4df1d1cc94bfb65cb448cf3d691f5b203f5428a68d8fdc835a"
+  },
+  "after": {
+    "working_commit": "2ff0b6576a82c0852c3a84402a68871f1b8b2b12",
+    "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+    "candidate_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+    "binary_sha256": {
+      "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+      "entangled": "5e11e7af5eae74c8cbec3f140e7322b98b9f5910cdb8cd269b53f9ae6d2b73f9"
+    },
+    "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+    "driver_sha256": "2800599d20f989dcb7c79d6e3ce9ee880ab4683b57a4141d60c50b7643db529f",
+    "base_driver_sha256": "aad63b75c8f89f4df1d1cc94bfb65cb448cf3d691f5b203f5428a68d8fdc835a"
+  },
+  "started_utc": "2026-11-27T03:14:52.527837+00:00",
+  "finished_utc": "2026-11-27T03:17:10.790353+00:00",
+  "images": {
+    "python:3.12-slim-trixie": "python@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b",
+    "tailscale/tailscale:v1.92.5": "tailscale/tailscale@sha256:4a0aaacee6f28e724c1f80c986e5776c9c979d8f7e19274c2cae2d495cc8d625",
+    "headscale/headscale:0.27.1": "headscale/headscale@sha256:cd37b30018575fd62f18419138d4e526bcf894e1d4e1aa1b08699cec1891ac23"
+  },
+  "scope": "one Linux host; two real kernel Tailscale namespaces; disposable private Headscale; no external tailnet",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "measurements": {
+    "initial_application_pids": {
+      "a559c7a01356664cd2b4e7a7f1b51653": 434581,
+      "5f0a9e28ef31e6c85880d3cec2dd812b": 434925
+    },
+    "topology": "two Linux network namespaces on one Docker host",
+    "network_internal": true,
+    "wireguard_path": "pong from worker (100.64.0.1) via 172.18.0.3:41641 in 1ms",
+    "worker_peer": "a559c7a01356664cd2b4e7a7f1b51653",
+    "coordinator_peer": "5f0a9e28ef31e6c85880d3cec2dd812b",
+    "worker_ip": "100.64.0.1",
+    "coordinator_ip": "100.64.0.2",
+    "stable_tailscale_id": "1",
+    "policy": [
+      {
+        "acls": [
+          {
+            "action": "accept",
+            "proto": "udp",
+            "src": [
+              "100.64.0.2"
+            ],
+            "dst": [
+              "100.64.0.1:7444"
+            ]
+          }
+        ]
+      },
+      {
+        "acls": [
+          {
+            "action": "accept",
+            "proto": "udp",
+            "src": [
+              "100.64.0.2"
+            ],
+            "dst": [
+              "100.64.0.1:7444",
+              "100.64.0.1:7443"
+            ]
+          },
+          {
+            "action": "accept",
+            "proto": "udp",
+            "src": [
+              "100.64.0.1"
+            ],
+            "dst": [
+              "100.64.0.2:7443"
+            ]
+          }
+        ]
+      },
+      {
+        "acls": [
+          {
+            "action": "accept",
+            "proto": "udp",
+            "src": [
+              "100.64.0.2"
+            ],
+            "dst": [
+              "100.64.0.1:7444"
+            ]
+          }
+        ]
+      },
+      {
+        "acls": [
+          {
+            "action": "accept",
+            "proto": "udp",
+            "src": [
+              "100.64.0.2"
+            ],
+            "dst": [
+              "100.64.0.1:7444",
+              "100.64.0.1:7443"
+            ]
+          },
+          {
+            "action": "accept",
+            "proto": "udp",
+            "src": [
+              "100.64.0.1"
+            ],
+            "dst": [
+              "100.64.0.2:7443"
+            ]
+          }
+        ]
+      }
+    ],
+    "applied_policy": [
+      {
+        "allowed_ranges_on_worker": [
+          {
+            "First": 7444,
+            "Last": 7444
+          }
+        ],
+        "control_ack_to_local_filter_ms": 500.187
+      },
+      {
+        "allowed_ranges_on_worker": [
+          {
+            "First": 7444,
+            "Last": 7444
+          },
+          {
+            "First": 7443,
+            "Last": 7443
+          }
+        ],
+        "control_ack_to_local_filter_ms": 494.071
+      },
+      {
+        "allowed_ranges_on_worker": [
+          {
+            "First": 7444,
+            "Last": 7444
+          }
+        ],
+        "control_ack_to_local_filter_ms": 443.18
+      },
+      {
+        "allowed_ranges_on_worker": [
+          {
+            "First": 7444,
+            "Last": 7444
+          },
+          {
+            "First": 7443,
+            "Last": 7443
+          }
+        ],
+        "control_ack_to_local_filter_ms": 934.688
+      }
+    ],
+    "port_controls": {
+      "worker": "100.64.0.1",
+      "protocol": "udp",
+      "deny": {
+        "7443": "no response",
+        "7444": "nonce echoed"
+      },
+      "allow": {
+        "7443": "nonce echoed",
+        "7444": "nonce echoed"
+      }
+    },
+    "jobs": [
+      {
+        "phase": "scheduler-blocked-by-initial-port-policy",
+        "elapsed_ms": 172.477,
+        "worker_completed_before": 0,
+        "worker_completed_after": 0,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "allow-7443",
+        "elapsed_ms": 151.211,
+        "worker_completed_before": 1,
+        "worker_completed_after": 2,
+        "chosen_peer": "a559c7a01356664cd2b4e7a7f1b51653",
+        "nonce": "3184f9f1cdcdd4fef5cab3442e9cc0d0",
+        "input_json": "{\"data\": {\"challenge\": \"3184f9f1cdcdd4fef5cab3442e9cc0d0\"}, \"pointer\": \"/challenge\"}",
+        "returned_output_utf8": "\"3184f9f1cdcdd4fef5cab3442e9cc0d0\"",
+        "verified_json_output": "3184f9f1cdcdd4fef5cab3442e9cc0d0"
+      },
+      {
+        "phase": "worker-tailscaled-stopped",
+        "elapsed_ms": 11181.038,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0402: remote dispatch to peer a559c7a01356664cd2b4e7a7f1b51653 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead)"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 11175.925,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0402: remote dispatch to peer a559c7a01356664cd2b4e7a7f1b51653 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead)"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 11185.644,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0402: remote dispatch to peer a559c7a01356664cd2b4e7a7f1b51653 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead)"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 11156.561,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0402: remote dispatch to peer a559c7a01356664cd2b4e7a7f1b51653 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead)"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 11206.622,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0402: remote dispatch to peer a559c7a01356664cd2b4e7a7f1b51653 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead)"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 156.645,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 187.542,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 233.837,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 163.642,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 161.184,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 175.208,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 171.928,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 154.383,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 164.815,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 193.886,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 218.456,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted",
+        "elapsed_ms": 190.126,
+        "worker_completed_before": 2,
+        "worker_completed_after": 2,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted-after-app-restart-worker",
+        "elapsed_ms": 157.423,
+        "worker_completed_before": 0,
+        "worker_completed_after": 0,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: placement: no live workers in pool"
+        }
+      },
+      {
+        "phase": "transport-service-restarted-after-app-restart-worker",
+        "elapsed_ms": 353.13,
+        "worker_completed_before": 0,
+        "worker_completed_after": 1,
+        "chosen_peer": "a559c7a01356664cd2b4e7a7f1b51653",
+        "nonce": "c7c2b6e06104fce6d0c5bfaecff4bbcb",
+        "input_json": "{\"data\": {\"challenge\": \"c7c2b6e06104fce6d0c5bfaecff4bbcb\"}, \"pointer\": \"/challenge\"}",
+        "returned_output_utf8": "\"c7c2b6e06104fce6d0c5bfaecff4bbcb\"",
+        "verified_json_output": "c7c2b6e06104fce6d0c5bfaecff4bbcb"
+      },
+      {
+        "phase": "link-up-after-entanglement-revocation",
+        "elapsed_ms": 237.422,
+        "worker_completed_before": 1,
+        "worker_completed_after": 1,
+        "rpc_error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0403: peer a559c7a01356664cd2b4e7a7f1b51653 rejected the task (not-authorized): peer is not in this node's trusted peer allowlist"
+        }
+      },
+      {
+        "phase": "operator-repaired-trust",
+        "elapsed_ms": 178.676,
+        "worker_completed_before": 1,
+        "worker_completed_after": 2,
+        "chosen_peer": "a559c7a01356664cd2b4e7a7f1b51653",
+        "nonce": "29bee5d1dec557df5fc15aa9dd45249a",
+        "input_json": "{\"data\": {\"challenge\": \"29bee5d1dec557df5fc15aa9dd45249a\"}, \"pointer\": \"/challenge\"}",
+        "returned_output_utf8": "\"29bee5d1dec557df5fc15aa9dd45249a\"",
+        "verified_json_output": "29bee5d1dec557df5fc15aa9dd45249a"
+      }
+    ],
+    "socket_observations": [
+      {
+        "phase": "before-service-stop",
+        "devices": {
+          "worker": {
+            "network_namespace": "net:[4026532481]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "01004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.1"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434581
+          },
+          "coordinator": {
+            "network_namespace": "net:[4026532565]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "02004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.2"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434925
+          }
+        }
+      },
+      {
+        "phase": "transport-stopped",
+        "devices": {
+          "worker": {
+            "network_namespace": "net:[4026532481]",
+            "tailscale0": false,
+            "socket_rows": [],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434581
+          },
+          "coordinator": {
+            "network_namespace": "net:[4026532565]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "02004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.2"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434925
+          }
+        }
+      },
+      {
+        "phase": "service-running-echo-restored",
+        "devices": {
+          "worker": {
+            "network_namespace": "net:[4026532481]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "01004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.1"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434581
+          },
+          "coordinator": {
+            "network_namespace": "net:[4026532565]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "02004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.2"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434925
+          }
+        }
+      },
+      {
+        "phase": "transport-service-restarted-automatic-deadline",
+        "devices": {
+          "worker": {
+            "network_namespace": "net:[4026532481]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "01004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.1"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434581
+          },
+          "coordinator": {
+            "network_namespace": "net:[4026532565]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "02004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.2"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434925
+          }
+        }
+      },
+      {
+        "phase": "transport-service-restarted-after-restart-worker",
+        "devices": {
+          "worker": {
+            "network_namespace": "net:[4026532481]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "01004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.1"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 441295
+          },
+          "coordinator": {
+            "network_namespace": "net:[4026532565]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "02004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.2"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434925
+          }
+        }
+      },
+      {
+        "phase": "tailscale-down",
+        "devices": {
+          "worker": {
+            "network_namespace": "net:[4026532481]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "01004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.1"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 441295
+          },
+          "coordinator": {
+            "network_namespace": "net:[4026532565]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "02004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.2"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434925
+          }
+        }
+      },
+      {
+        "phase": "final-recovered",
+        "devices": {
+          "worker": {
+            "network_namespace": "net:[4026532481]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "01004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.1"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 441295
+          },
+          "coordinator": {
+            "network_namespace": "net:[4026532565]",
+            "tailscale0": true,
+            "socket_rows": [
+              {
+                "table": "udp",
+                "local_address_hex": "02004064",
+                "port": 7443,
+                "fd_owned_by_daemon": true,
+                "local_ip": "100.64.0.2"
+              }
+            ],
+            "mesh_active": [
+              "tailscale"
+            ],
+            "app_pid": 434925
+          }
+        }
+      }
+    ],
+    "documented_compute_check": {
+      "transport": "tailscale",
+      "chosen_peer": "a559c7a01356664cd2b4e7a7f1b51653",
+      "plugin_id": "a559c7a01356664cd2b4e7a7f1b51653/json-pointer@0.1.0",
+      "verified_output": "75b0d37b8f747bd4d62efba819af631b"
+    },
+    "acl_restore_to_verified_job_ms": 2762.01,
+    "adjacent_udp_echo_while_scheduler_denied": true,
+    "transport_restart": {
+      "old_pid": 432729,
+      "new_pid": 436810,
+      "stable_tailscale_id": "1",
+      "recovery": {
+        "automatic": false,
+        "automatic_observation_ms": 55010.93,
+        "to_verified_job_ms": 57942.698,
+        "last_app_restart_to_verified_job_ms": 2220.885,
+        "application_restarts": [
+          "worker"
+        ]
+      },
+      "restart_to_verified_job_ms": 60427.128
+    },
+    "link_up_to_refused_job_ms": 15875.219,
+    "explicit_worker_rejection_on_reconnect": true,
+    "later_trust_recovery": {
+      "automatic": true,
+      "to_verified_job_ms": 496.46,
+      "application_restarts": []
+    },
+    "rebind_warnings": [
+      {
+        "role": "worker",
+        "timestamp": "2026-11-27T03:15:35.088572Z",
+        "target": "iroh::socket",
+        "message": "failed to rebind transports: Os { code: 99, kind: AddrNotAvailable, message: \"Cannot assign requested address\" }"
+      },
+      {
+        "role": "worker",
+        "timestamp": "2026-11-27T03:15:48.477080Z",
+        "target": "iroh::socket",
+        "message": "failed to rebind transports: Os { code: 99, kind: AddrNotAvailable, message: \"Cannot assign requested address\" }"
+      },
+      {
+        "role": "worker",
+        "timestamp": "2026-11-27T03:16:48.702756Z",
+        "target": "iroh::socket",
+        "message": "failed to rebind transports: Os { code: 99, kind: AddrNotAvailable, message: \"Cannot assign requested address\" }"
+      }
+    ],
+    "final_application_pids": {
+      "a559c7a01356664cd2b4e7a7f1b51653": 441295,
+      "5f0a9e28ef31e6c85880d3cec2dd812b": 434925
+    }
+  }
+}

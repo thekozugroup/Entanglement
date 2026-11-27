@@ -1,0 +1,10 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/fs-probe@0.1.0"
+version = "0.1.0"
+tier = 1
+runtime = "wasm"
+description = "Read-only WASI filesystem conformance probe"
+[capabilities]
+[build]
+wit_world = "entangle:plugin@0.1.0/plugin"
+target = "wasm32-wasip2"
