@@ -37,7 +37,7 @@ pub fn plugin_name_from_id(id: &str) -> &str {
 /// * `fingerprint_hex` — 32 lowercase hex chars from `IdentityKeyPair::fingerprint_hex`.
 ///
 /// The returned manifest is guaranteed to have passed
-/// [`crate::validate`], so tier/capability violations
+/// [`crate::validate()`], so tier/capability violations
 /// (`ENTANGLE-E0042`) and malformed ids (`ENTANGLE-E0201`) surface at build
 /// time rather than at load time on someone else's machine.
 pub fn render_dist_manifest(source: &str, fingerprint_hex: &str) -> Result<RenderedManifest> {

@@ -6,7 +6,7 @@
 /// its APIs. We store that directly so callers can inspect the root cause via
 /// standard `anyhow` chaining.
 ///
-/// The stable code block `ENTANGLE-E0500`–`ENTANGLE-E0507` is reserved for this
+/// The stable code block `ENTANGLE-E0500`–`ENTANGLE-E0509` is reserved for this
 /// enum; see the range table in `entangle-types::errors` for the workspace map.
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
@@ -43,16 +43,16 @@ pub enum HostError {
     #[error("ENTANGLE-E0506: resource limit exceeded: {0}")]
     ResourceExhausted(anyhow::Error),
 
-    /// A stream exceeded its negotiated cumulative output budget.
-    #[error("ENTANGLE-E0506: stream total {actual} exceeds negotiated {limit} bytes")]
+    /// ENTANGLE-E0508: a stream exceeded its negotiated cumulative output budget.
+    #[error("ENTANGLE-E0508: stream total {actual} exceeds negotiated {limit} bytes")]
     StreamTotalBytesExceeded {
         /// Negotiated lifetime byte cap.
         limit: u64,
         /// Cumulative bytes including the rejected chunk.
         actual: u64,
     },
-    /// A stream produced an empty or oversized chunk.
-    #[error("ENTANGLE-E0506: invalid stream chunk size {actual} (limit {limit})")]
+    /// ENTANGLE-E0509: a stream produced an empty or oversized chunk.
+    #[error("ENTANGLE-E0509: invalid stream chunk size {actual} (limit {limit})")]
     StreamChunkSizeExceeded {
         /// Maximum bytes in one chunk.
         limit: u32,

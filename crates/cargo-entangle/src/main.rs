@@ -26,7 +26,7 @@ enum Actions {
         /// Plugin project directory.
         #[arg(default_value = ".")]
         dir: PathBuf,
-        /// Output archive. Defaults to target/entangle/<name>-<version>.tar.zst in the project.
+        /// Output archive. Defaults to the package name and version under `target/entangle`.
         #[arg(long)]
         out: Option<PathBuf>,
         /// Publisher identity PEM. Defaults to ~/.entangle/identity.key.
