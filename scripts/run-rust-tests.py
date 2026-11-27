@@ -16,12 +16,33 @@ class DispatchError(Exception):
     """A transport, worker, or libtest protocol failure."""
 
 
-class SuiteIdentityError(DispatchError):
+class RpcError(DispatchError):
+    """A structured error returned by the coordinator."""
+
+    def __init__(self, message, remote_code=None):
+        super().__init__(message)
+        self.remote_code = remote_code
+
+
+class TerminalDispatchError(DispatchError):
+    """An attempt whose rejection or attribution must end retries."""
+
+    def __init__(self, message, error_kind, remote_code=None):
+        super().__init__(message)
+        self.error_kind = error_kind
+        self.remote_code = remote_code
+
+
+class SuiteIdentityError(TerminalDispatchError):
     """A worker did not prove the identity of the selected signed suite."""
+
+    def __init__(self, message, remote_code=None):
+        super().__init__(message, "suite_identity", remote_code)
 
 
 MAX_RPC_LINE = 4 * 1024 * 1024
 SUITE_DIGESTS = {"artifact_blake3", "manifest_blake3"}
+LIBTEST_REMOTE_CODES_VERSION = 1
 STATUSES = ("passed", "flaky", "failed", "ignored", "error")
 RESULT = re.compile(
     r"^test result: (ok|FAILED)\. ([0-9]+) passed; ([0-9]+) failed; ([0-9]+) ignored; "
@@ -47,7 +68,11 @@ def rpc(socket_path, method, params, timeout):
         if reply["id"] != 1 or reply["jsonrpc"] != "2.0":
             raise DispatchError("unexpected RPC response envelope")
         if "error" in reply:
-            raise DispatchError(reply["error"]["message"])
+            error = reply["error"]
+            message = error["message"]
+            data = error.get("data")
+            remote_code = data.get("remote_code") if isinstance(data, dict) else None
+            raise RpcError(message, remote_code if isinstance(remote_code, str) else None)
         return reply["result"]
     except (OSError, KeyError, TypeError, ValueError) as error:
         raise DispatchError(f"{method}: {error}") from error
@@ -69,16 +94,28 @@ def dispatcher(socket_path, plugin, timeout_ms):
         upgrade = f"worker {peer} does not report signed libtest suite identity; upgrade the worker daemon"
         try:
             reply = rpc(socket_path, "compute/dispatch", request, timeout_ms / 1000 + 15)
-        except DispatchError as error:
-            message = str(error)
-            if "libtest suite identity mismatch" in message:
-                raise SuiteIdentityError(f"worker {peer}: {message}") from error
-            if "expected_suite_identity" in message and "unknown field" in message:
-                raise SuiteIdentityError(upgrade) from error
+        except RpcError as error:
+            if expected is not None:
+                if error.remote_code == "suite-identity-mismatch":
+                    raise SuiteIdentityError(f"worker {peer}: {error}", error.remote_code) from error
+                if error.remote_code in {"not-authorized", "plugin-not-loaded"}:
+                    raise TerminalDispatchError(
+                        f"worker {peer}: {error}", "remote_rejected", error.remote_code
+                    ) from error
+                if error.remote_code == "execution" and operation["operation"] == "list":
+                    raise DispatchError(
+                        f"pinned listing failed on worker {peer}: {error}. "
+                        "Verify the worker daemon supports signed libtest suite pinning."
+                    ) from error
             raise
         try:
-            if reply["chosen_peer"] != peer:
-                raise DispatchError("scheduler returned a different executor")
+            if not isinstance(reply, dict):
+                raise DispatchError("invalid scheduler response")
+            chosen_peer = reply.get("chosen_peer")
+            if chosen_peer != peer:
+                raise TerminalDispatchError(
+                    f"scheduler returned executor {chosen_peer!r}; expected {peer}", "executor_integrity"
+                )
             result = json.loads(bytes(reply["output"]))
             if not isinstance(result, dict):
                 raise DispatchError("invalid WASI libtest response")
@@ -96,7 +133,7 @@ def dispatcher(socket_path, plugin, timeout_ms):
             if (not isinstance(result["stdout"], str) or not isinstance(result["stderr"], str)
                     or (result["exit_code"] is not None and type(result["exit_code"]) is not int)):
                 raise DispatchError("invalid WASI libtest response")
-            return {"peer": reply["chosen_peer"], "exit_code": result["exit_code"],
+            return {"peer": chosen_peer, "exit_code": result["exit_code"],
                     "stdout": result["stdout"], "stderr": result["stderr"], "suite_identity": identity}
         except (KeyError, TypeError, ValueError) as error:
             raise DispatchError(f"invalid WASI libtest response: {error}") from error
@@ -191,8 +228,10 @@ def run_attempt(dispatch, peer, name, ignored, attempt):
                                  "attempt": attempt})
         record.update(result)
         record["status"] = classify(result, name)
-    except SuiteIdentityError as error:
-        record.update(status="error", error_kind="suite_identity", error=str(error))
+    except TerminalDispatchError as error:
+        record.update(status="error", error_kind=error.error_kind, error=str(error))
+        if error.remote_code is not None:
+            record["remote_code"] = error.remote_code
     except DispatchError as error:
         record.update(status="error", error=str(error))
     except Exception as error:
@@ -202,7 +241,7 @@ def run_attempt(dispatch, peer, name, ignored, attempt):
 
 def final_status(attempts, retries):
     last = attempts[-1]
-    if last.get("error_kind") == "suite_identity":
+    if "error_kind" in last:
         return "error"
     outcome = last["status"]
     if outcome == "passed":
@@ -290,7 +329,14 @@ def run_suite(args, plugin):
 
 
 def run_suites(args):
-    local_peer = rpc(args.socket, "mesh/status", None, 10)["local_peer_id"]
+    status = rpc(args.socket, "mesh/status", None, 10)
+    version = status.get("libtest_remote_codes") if isinstance(status, dict) else None
+    if type(version) is not int or version != LIBTEST_REMOTE_CODES_VERSION:
+        raise DispatchError("coordinator does not support signed libtest dispatch error codes version 1; "
+                            "upgrade the coordinator daemon")
+    local_peer = status.get("local_peer_id")
+    if not isinstance(local_peer, str):
+        raise DispatchError("coordinator did not report its local peer identity")
     if len(set(args.peer)) != len(args.peer) or local_peer in args.peer:
         raise DispatchError("supply distinct remote peer identities")
     started = time.monotonic()

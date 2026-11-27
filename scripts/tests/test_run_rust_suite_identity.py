@@ -1,6 +1,7 @@
 """Exercise signed suite pinning through the operator's normal RPC client."""
 
 import importlib.util
+import io
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -102,7 +103,7 @@ class SuiteIdentityTests(unittest.TestCase):
                     if request["attempt"] == 1:
                         return response(peer, FAILED, exit_code=101)
                     if reject_in_host:
-                        raise runner.DispatchError("rejected: libtest suite identity mismatch")
+                        raise runner.RpcError("runtime rejected request", "suite-identity-mismatch")
                     return response(peer, PASSED, FOREIGN)
 
                 report = self.run_cluster(reply, retries=3)
@@ -113,7 +114,11 @@ class SuiteIdentityTests(unittest.TestCase):
                 self.assertEqual(first["status"], "failed")
                 self.assertEqual(first["stdout"], FAILED)
                 self.assertEqual(second["error_kind"], "suite_identity")
-                self.assertIn("identity mismatch", second["error"])
+                if reject_in_host:
+                    self.assertEqual(second["remote_code"], "suite-identity-mismatch")
+                    self.assertIn("runtime rejected request", second["error"])
+                else:
+                    self.assertIn("identity mismatch", second["error"])
 
     def test_legacy_worker_reports_an_upgrade_error(self):
         def old_first(peer, request):
@@ -123,13 +128,67 @@ class SuiteIdentityTests(unittest.TestCase):
         def old_second(peer, request):
             if peer == WORKERS[1]:
                 self.assertEqual(request["expected_suite_identity"], PIN)
-                raise runner.DispatchError("invalid libtest request: unknown field `expected_suite_identity`")
+                raise runner.RpcError("worker could not decode request", "execution")
             return response(peer, "" if request.get("ignored") else "case: test\n")
 
-        for peer, legacy in zip(WORKERS, [old_first, old_second], strict=True):
-            with self.subTest(peer=peer):
-                with self.assertRaisesRegex(runner.SuiteIdentityError, peer + ".*upgrade the worker daemon"):
-                    self.run_cluster(legacy)
+        with self.assertRaisesRegex(runner.SuiteIdentityError, WORKERS[0] + ".*upgrade the worker daemon"):
+            self.run_cluster(old_first)
+        with self.assertRaisesRegex(runner.DispatchError,
+                                   WORKERS[1] + ".*could not decode request.*supports signed libtest suite pinning"):
+            self.run_cluster(old_second)
+
+    def test_a_different_or_missing_executor_is_terminal(self):
+        for chosen in (WORKERS[1], None):
+            with self.subTest(chosen=chosen):
+                def reply(peer, request):
+                    if request["operation"] == "list":
+                        return response(peer, "" if request.get("ignored") else "case: test\n")
+                    self.assertEqual(request["attempt"], 1)
+                    data = response(chosen, PASSED)
+                    if chosen is None:
+                        del data["chosen_peer"]
+                    return data
+
+                report = self.run_cluster(reply, retries=3)
+                result, = report["results"]
+                self.assertEqual(result["status"], "error")
+                attempt, = result["attempts"]
+                self.assertEqual(attempt["error_kind"], "executor_integrity")
+                self.assertEqual(attempt["peer"], WORKERS[0])
+                self.assertIn(f"returned executor {chosen!r}", attempt["error"])
+
+    def test_structured_security_rejections_are_terminal_even_without_matching_text(self):
+        for code in ("not-authorized", "plugin-not-loaded"):
+            with self.subTest(code=code):
+                def reply(peer, request):
+                    if request["operation"] == "list":
+                        return response(peer, "" if request.get("ignored") else "case: test\n")
+                    self.assertEqual(request["attempt"], 1)
+                    raise runner.RpcError("request rejected", code)
+
+                result, = self.run_cluster(reply, retries=3)["results"]
+                self.assertEqual(result["status"], "error")
+                attempt, = result["attempts"]
+                self.assertEqual(attempt["error_kind"], "remote_rejected")
+                self.assertEqual(attempt["remote_code"], code)
+
+    def test_untrusted_messages_cannot_stop_an_ordinary_retry(self):
+        for error in (runner.DispatchError("transport disconnected"),
+                      runner.RpcError("libtest suite identity mismatch"),
+                      runner.RpcError("unknown field expected_suite_identity", "execution")):
+            with self.subTest(error=error):
+                def reply(peer, request):
+                    if request["operation"] == "list":
+                        return response(peer, "" if request.get("ignored") else "case: test\n")
+                    if peer == WORKERS[0]:
+                        raise error
+                    return response(peer, PASSED)
+
+                result, = self.run_cluster(reply, retries=1)["results"]
+                self.assertEqual(result["status"], "passed")
+                self.assertEqual([attempt["status"] for attempt in result["attempts"]], ["error", "passed"])
+                self.assertEqual(result["attempts"][0]["error"], str(error))
+                self.assertNotIn("error_kind", result["attempts"][0])
 
     def test_initial_identity_must_contain_two_canonical_digests(self):
         for malformed in ([], {}, {**PIN, "manifest_blake3": "B" * 64},
@@ -137,6 +196,44 @@ class SuiteIdentityTests(unittest.TestCase):
             with self.subTest(identity=malformed):
                 with self.assertRaisesRegex(runner.SuiteIdentityError, "invalid libtest suite identity"):
                     self.run_cluster(lambda peer, _: response(peer, "case: test\n", malformed))
+
+
+class CoordinatorProtocolTests(unittest.TestCase):
+    def test_rpc_reads_only_nested_structured_code(self):
+        for data, expected in (({"remote_code": "not-authorized"}, "not-authorized"),
+                               ({"remote_code": 1}, None), ("not-authorized", None), (None, None)):
+            with self.subTest(data=data), patch.object(runner.socket, "socket") as socket:
+                error = {"code": -32000, "message": "arbitrary worker message", "data": data,
+                         "remote_code": "plugin-not-loaded"}
+                reply = {"jsonrpc": "2.0", "id": 1, "error": error}
+                stream = socket.return_value.__enter__.return_value
+                stream.makefile.return_value = io.BytesIO(json.dumps(reply).encode() + b"\n")
+                with self.assertRaises(runner.RpcError) as rejection:
+                    runner.rpc("/tmp/unused", "compute/dispatch", None, 1)
+                self.assertEqual(rejection.exception.remote_code, expected)
+                self.assertEqual(str(rejection.exception), error["message"])
+
+    def test_stale_or_unknown_coordinator_stops_before_work(self):
+        for advertised in ({}, {"libtest_remote_codes": 0}, {"libtest_remote_codes": 2},
+                           {"libtest_remote_codes": "1"}, {"libtest_remote_codes": True}):
+            with self.subTest(advertised=advertised), patch.object(runner, "rpc") as rpc:
+                rpc.return_value = {"local_peer_id": "0" * 32, **advertised}
+                with self.assertRaisesRegex(runner.DispatchError, "upgrade the coordinator daemon"):
+                    runner.run_suites(args(0))
+                rpc.assert_called_once_with(None, "mesh/status", None, 10)
+
+    def test_current_coordinator_processes_suites_and_refuses_self_as_worker(self):
+        options = args(0)
+        options.plugins = ["publisher/example@0.1.0"]
+        with (patch.object(runner, "rpc") as rpc, patch.object(runner, "run_suite") as run):
+            rpc.return_value = {"local_peer_id": "0" * 32, "libtest_remote_codes": 1}
+            run.return_value = {"counts": dict.fromkeys(runner.STATUSES, 0), "filtered": 0}
+            self.assertEqual(runner.run_suites(options)["suites"], [run.return_value])
+            run.assert_called_once_with(options, options.plugins[0])
+            rpc.return_value["local_peer_id"] = WORKERS[0]
+            with self.assertRaisesRegex(runner.DispatchError, "distinct remote peer identities"):
+                runner.run_suites(options)
+            self.assertEqual(run.call_count, 1)
 
 
 if __name__ == "__main__":
