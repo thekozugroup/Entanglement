@@ -88,3 +88,20 @@ class JUnitTests(unittest.TestCase):
             report["counts"]["ignored"] = 7
             with self.assertRaisesRegex(ValueError, "counts disagree"):
                 junit.convert(report)
+
+    def test_duplicate_names_are_scoped_to_each_suite(self):
+        report = report_fixture()
+        suite, empty = report["suites"]
+        empty["results"].append(copy.deepcopy(suite["results"][0]))
+        empty["counts"]["passed"] += 1
+        report["counts"]["passed"] += 1
+        self.assertEqual(junit.convert(report).getroot().get("tests"), "6")
+        empty["results"] *= 2
+        with self.assertRaisesRegex(ValueError, "duplicate test case"):
+            junit.convert(report)
+
+    def test_incomplete_attempt_cannot_be_published(self):
+        report = report_fixture()
+        report["suites"][0]["results"][0]["attempts"][0].pop("stdout")
+        with self.assertRaises(KeyError):
+            junit.convert(report)

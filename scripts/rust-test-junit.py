@@ -43,6 +43,12 @@ def add_case(suite, record):
                 or not isinstance(attempt["peer"], str) or not attempt["peer"]
                 or attempt["status"] not in {"passed", "failed", "ignored", "error"}):
             raise ValueError(f"{name}: invalid attempt {index}")
+        if attempt["status"] != "error" or "exit_code" in attempt:
+            if (not isinstance(attempt["stdout"], str) or not isinstance(attempt["stderr"], str)
+                    or (attempt["exit_code"] is not None and type(attempt["exit_code"]) is not int)):
+                raise ValueError(f"{name}: invalid captured output in attempt {index}")
+        if attempt["status"] == "error" and not isinstance(attempt.get("error"), str):
+            raise ValueError(f"{name}: missing error diagnostic in attempt {index}")
     if status in {"passed", "flaky"}:
         if attempts[-1]["status"] != "passed" or (
             any(a["status"] == "failed" for a in attempts[:-1]) != (status == "flaky")
@@ -77,9 +83,13 @@ def convert(report):
     totals = Counter()
     if not isinstance(report["suites"], list) or not report["suites"]:
         raise ValueError("expected at least one suite")
+    seen_suites = set()
     for source in report["suites"]:
         if not isinstance(source["suite"], str) or not source["suite"] or not isinstance(source["results"], list):
             raise ValueError("invalid suite name or results")
+        if source["suite"] in seen_suites:
+            raise ValueError(f"duplicate test suite: {source['suite']}")
+        seen_suites.add(source["suite"])
         suite = ET.SubElement(root, "testsuite", name=xml_text(source["suite"]))
         if "suite_identity" in source:
             properties = ET.SubElement(suite, "properties")
@@ -89,8 +99,12 @@ def convert(report):
                     raise ValueError(f"invalid suite identity field {key}")
                 ET.SubElement(properties, "property", name=key, value=digest)
         counts = Counter()
+        seen_names = set()
         for record in source["results"]:
             add_case(suite, record)
+            if record["name"] in seen_names:
+                raise ValueError(f"duplicate test case: {record['name']}")
+            seen_names.add(record["name"])
             counts[record["status"]] += 1
         finalize(suite, source, counts)
         totals.update(counts)
