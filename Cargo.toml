@@ -32,6 +32,7 @@ members = [
 exclude = [
     "examples/*",
     "crates/entangle-host/fixtures-src/*",
+    "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe",
 ]
 
 [workspace.package]
