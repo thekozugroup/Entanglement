@@ -1,0 +1,10 @@
+test_absent_reference_entry_is_distinct_from_mismatching_bytes (test_benchmark_raw_batch.RawBenchmarkEvidence.test_absent_reference_entry_is_distinct_from_mismatching_bytes) ... ok
+test_main_persists_failed_arm_without_a_speedup (test_benchmark_raw_batch.RawBenchmarkEvidence.test_main_persists_failed_arm_without_a_speedup) ... ok
+test_missing_output_does_not_mislabel_matching_bytes (test_benchmark_raw_batch.RawBenchmarkEvidence.test_missing_output_does_not_mislabel_matching_bytes) ... ok
+test_missing_source_and_hash_state_without_reference (test_benchmark_raw_batch.RawBenchmarkEvidence.test_missing_source_and_hash_state_without_reference) ... ok
+test_unused_peer_and_digest_mismatch_remain_failures (test_benchmark_raw_batch.RawBenchmarkEvidence.test_unused_peer_and_digest_mismatch_remain_failures) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.033s
+
+OK

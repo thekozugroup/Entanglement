@@ -1,0 +1,28 @@
+usage: benchmark_raw_batch.py [-h] --cli CLI --input-dir INPUT_DIR --manifest
+                              MANIFEST --single-home SINGLE_HOME --mesh-home
+                              MESH_HOME --scratch SCRATCH --report REPORT
+                              --plugin PLUGIN --worker WORKER
+                              [--trials TRIALS] [--jobs JOBS]
+                              [--tile-edge TILE_EDGE] [--timeout TIMEOUT]
+
+Time complete RAW dehaze batches on one local executor and an explicitly
+paired mesh. The input manifest is a JSON object mapping relative RAW paths to
+SHA-256. The profiles must already be running. Each timed invocation uses a
+fresh output directory on the same volume. Reports contain file names and peer
+identifiers.
+
+options:
+  -h, --help            show this help message and exit
+  --cli CLI
+  --input-dir INPUT_DIR
+  --manifest MANIFEST
+  --single-home SINGLE_HOME
+  --mesh-home MESH_HOME
+  --scratch SCRATCH
+  --report REPORT
+  --plugin PLUGIN
+  --worker WORKER       full remote peer ID, repeat per worker
+  --trials TRIALS
+  --jobs JOBS
+  --tile-edge TILE_EDGE
+  --timeout TIMEOUT     per-batch wall time limit in seconds

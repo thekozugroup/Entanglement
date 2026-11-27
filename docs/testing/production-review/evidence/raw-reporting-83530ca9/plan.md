@@ -1,0 +1,7 @@
+# Qualification of the RAW benchmark reporting correction
+
+Registered 2026-11-27 12:08 UTC after the retained f499e3ed coverage failure and before integration or publication of the reporting change. This is a diagnostic correction. The seven-route result, the failed registered two-camera series and the f499e3ed release-wide scores stay attributed to their exact measured source. Preserve successful output validation, the all-specified-workers placement criterion, and the nonzero failure exit. An invalid trial must never contribute to a speedup.
+
+Require the normal benchmark entry point to retain per-file digest, elapsed time and tile counts where those observations passed structural checks, and to record zero counts for specified workers absent from the receipts. Require an input omission to be distinguished from observed output-byte mismatch and actual worker liveness to remain unknown from absence alone. Exercise failures with genuine RGB16 PNG inputs, a reference-hash mismatch, a missing source and a full-coverage success, followed by the Python suite and a separately registered signed real-camera control. Do not substitute that observation for the failed primary.
+
+Publish the tested correction on the approved review branch and retain the independently scored f499e3ed checkout and its verifiable production/runtime artifacts as a separate immutable reference. If a later source receives a fresh release-wide score, it must be supported by exact-source evidence under the same 57 mandatory checks.

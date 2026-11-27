@@ -1,0 +1,85 @@
+{
+  "source_commit": "83530ca9ec081ba30dab57551d1d3e57d388cbdb",
+  "source_id": "sha256:c045e0e1a704cec81af27d8e5915501136a60f6c1e1c055f690986bddf9de4ac",
+  "verification_sha256": "d9649cdd524103a6cf1872addbbce9fdf20bb3a0cfd01d4667a110a90dd81bd5",
+  "files_sha256": {
+    "docs/testing/production-review/evidence/candidate-f499e3ed/native-linux-release.json": "ce527281709c65579eb46a57b1d823d5c28fd74c69de0db508c315af0b004fa6",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/qa-supplement.json": "c8282311804e6798c3939dcf1d58af08570a41d48bab5cdc1ca9ac80d4a7d5db",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/real-photo-wall-times.json": "a9fe70a60e9cccd62f0abcec65776859dfb8a6d950b3fe94a20d2a8986c65824",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-clock.json": "2b32411e86a853e4fea4db286d10103cccf4827df5888f169a18a49ca5b8926c",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/README.md": "ab40a3431f7a57f1f900a702581cba66e39b618386987a8c2bce1aff60de71e8",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/execution-receipt.json": "4e490c523ec8ef55fe276cf3ee6fbbc2487d0e5f48168c96b1b138c6d07949a8",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/mesh.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/mesh.stdout.jsonl": "fcd2988af74455fa35507dcb1e64d5a5b2d8686fc592f378f25efe6cf39131a4",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/observations.json": "fcdf6c666b60827ea116d334930aa5130d506a94f68f68eceea139087a909abd",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/observer-tests.log": "ed88a884722bf3677d546c824dbef0d563f3b9449865ef53154b28dcd7b1323b",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/observer.bundle": "834613e700878fdf4d570015c9362447e4ac73ee4ac6499ce58fa20425d20797",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/observer.patch": "69c621b43ec6cd8de597b26400b80443c0d64e40e2b8ce1c851ae16e5a976d7b",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/plan.md": "81cbff759d923b61d6273954df38592c9de94ff32ceda166f35d3956e742faf2",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/run.py": "1d61513a8c77969afa95d4bf6f30ef648f63421d3facc7d8e57483c219bf7514",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/single.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/single.stdout.jsonl": "18f5bdf5502660d248efd7da741d650aa26cafbaec8089a713dd29f26f58477c",
+    "docs/testing/production-review/evidence/raw-reporting-83530ca9/fixed-clock-control.py": "bd1fdc6358cecbb9502db8d1197df9918e39106b2184d0342a30a2e5396e0ebd",
+    "docs/testing/production-review/evidence/raw-reporting-83530ca9/git-diff.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "docs/testing/production-review/evidence/raw-reporting-83530ca9/ordinary-entry.log": "1353acf003d7080af5b1cf2e8323d69d8242f9531cbf9c5af355dd2094e5302e",
+    "docs/testing/production-review/evidence/raw-reporting-83530ca9/plan.md": "1b2a063911a5a9f1ff7c83d91199a16f93bfb4c3c28b4c2f9c933bea8aee7f6a",
+    "docs/testing/production-review/evidence/raw-reporting-83530ca9/python-suite.log": "957e8bd765cb44b154723cba7de50951cd8cd244b1ccbb3d42f47d8cbb492fca",
+    "docs/testing/production-review/evidence/raw-reporting-83530ca9/raw-regressions.log": "e2347f89e3e24e9403e7a0a2820c6da343ea59b4d5a803fb52dbb9566d4e85fd",
+    "docs/testing/production-review/evidence/raw-reporting-83530ca9/release-build.log": "41881b611848d16ae613c8e5b359f15788e34ddf5d503a9050c82db174ce0857",
+    "docs/testing/production-review/evidence/raw-reporting-83530ca9/successful-report-comparison.log": "616b316525baee3727c0c92c71b517fc73fa4cb7120bcc2dd416893d507b1fda",
+    "scripts/benchmark_raw_batch.py": "8799aa5f8679e54331405fb643e18a0698276052ada641d97f98bb739b8d0012",
+    "scripts/tests/test_benchmark_raw_batch.py": "70c1a4d00a95c46a4fddb9195c94ad76875ece91ec65fcfef1197161dd367d2b"
+  },
+  "reviewer": "plugin (independent RAW reporting and release review)",
+  "reviewed_at_utc": "2026-11-27T12:21:40.564323+00:00",
+  "scope": "Review of the two integrated observer/test files, the official verification receipt and retained camera evidence. Source identity checked before and after inspection.",
+  "results": {
+    "integrated_files_match_isolated_review_byte_for_byte": [
+      "scripts/benchmark_raw_batch.py",
+      "scripts/tests/test_benchmark_raw_batch.py"
+    ],
+    "official_checks": {
+      "git-diff": 0,
+      "python-suite": 0,
+      "raw-regressions": 0,
+      "successful-report-comparison": 0,
+      "ordinary-entry": 0,
+      "release-build": 0
+    },
+    "official_python_tests_passed": 70,
+    "official_raw_regressions_passed": 5,
+    "verified_official_file_digests": 26,
+    "current_release_binary_sha256_matches_f499": {
+      "entangle": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+      "entangled": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8"
+    },
+    "successful_report_control": "The fixed-clock report matched the full prior successful report, including route order, elapsed values, medians and speedup. Invalid placements and counts still failed.",
+    "failed_report_control": "Structurally verified rows retain per-photo elapsed time, tile placements and SHA-256. Missing sources, unused specified workers, mismatched observed hashes, and missing hash-comparison keys are recorded separately. The invalid arm still fails and cannot enter aggregate timing.",
+    "retained_real_camera_control": "The prior single and mesh diagnostic used the byte-identical observer and f499 release binaries. Each independently recorded arm exited zero and matched the two pinned output hashes. All three specified mesh workers participated, with 2, 5 and 11 attributed tiles.",
+    "retained_primary_camera_series": {
+      "last_arm": "pair 2 mesh",
+      "cli_exit_code": 0,
+      "benchmark_exit_code": 1,
+      "speedup_published": false
+    }
+  },
+  "limitations": [
+    "An unused worker indicates zero attributed tiles in that arm. Its liveness and why it received no work cannot be inferred.",
+    "The output hash match flag refers to compared filenames. Missing outputs or reference keys are a separate failure, including when the common hashes match.",
+    "The offline Cargo build reused cached release products. The independent audit checked the two actual executable hashes and their f499 bindings.",
+    "No real timing was rerun in this review. The separate two-batch control establishes output and placement for its own arms only. The failed primary series and f499 release-wide grade retain their original scope."
+  ],
+  "isolated_prior_review": {
+    "source_commit": "b90aac1bf936c71f1ee4cf12893312f530a92b53",
+    "source_id": "sha256:10e4bba41d7c24f1266aef889d6490c6bdacd918cb6f531726b6cfa15ae48b5a",
+    "benchmark_tests_passed": 8,
+    "fixed_clock_exit_code": 0,
+    "transcript_directory": "/tmp/entangle-onboard-promotion-review-a727cv7e/raw-reviewer",
+    "transcript_sha256": {
+      "benchmark-unit.log": "503cafd94ee06c575249f06bc6d48e7a2aace5fe1e54fdbf8943fc4a4f8e18ec",
+      "fixed-clock.log": "616b316525baee3727c0c92c71b517fc73fa4cb7120bcc2dd416893d507b1fda",
+      "fixed-clock.py": "bd1fdc6358cecbb9502db8d1197df9918e39106b2184d0342a30a2e5396e0ebd",
+      "review.json": "715b5f3985ea4887ba51c8f5349267407bc38a3f9093b840c8114477165c3805"
+    }
+  }
+}
