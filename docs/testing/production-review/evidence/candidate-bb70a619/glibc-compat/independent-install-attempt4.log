@@ -1,0 +1,15 @@
+linux/x86_64 openssl mode=positive, native archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version 0.1.0 --prefix /tmp/supplemental-installer-y5q6u8_2/install/home/install/bin -> 0
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 fdfb5caa3551620f19d2f991ae9ae36287b86cc5a553582f8423c56e1c6c2885
+  entangle 0.1.0, installed SHA-256 fd7bc57c79ca52baab731fa2f0965f8d7c94a864b9c1d1413ab253413b6e983a
+  entangled 0.1.0, installed SHA-256 ee011e9d6a4f0f9d4752fcc90f7948bdb404b97cd757d2bbf2bff271923a6d49
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/glibc-compat/independent-install-check.py", line 53, in <module>
+    out=get(ex(cli,'plugins','build','/sample','--wasm','/sample/hello.wasm','--out','/tmp/signed'))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/glibc-compat/independent-install-check.py", line 19, in get
+    if r.returncode:raise RuntimeError(f'{args!r}: exit {r.returncode}; stdout={r.stdout!r}; stderr={r.stderr!r}')
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: ['docker', 'exec', '115c06f5cdae704c9b7fe11bfa098024041ae9ee712b03b5c70d5e3d14d332ba', '/installed/entangle', 'plugins', 'build', '/sample', '--wasm', '/sample/hello.wasm', '--out', '/tmp/signed']: exit 1; stdout=''; stderr='error: /sample/entangle.toml not found.\nA plugin project needs an entangle.toml manifest next to its Cargo.toml.\nScaffold one with: entangle plugins new <name>\n'

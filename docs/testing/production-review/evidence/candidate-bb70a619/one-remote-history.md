@@ -1,0 +1,19 @@
+# One-remote image tail across releases
+
+The one-remote image p95 miss was observed before `bb70a619`. Each comparison below used the same `864ae27b` daemon as its baseline. The historical p95 observation does not extend to the current throughput miss.
+
+| Candidate | Baseline p95 | Candidate p95 | p95 ratio | Throughput ratio |
+|---|---:|---:|---:|---:|
+| `761485d7` | 130.325 ms | 139.591 ms | 1.071 | 0.995 |
+| `42bb9a33` | 127.746 ms | 192.938 ms | 1.510 | 1.007 |
+| `bb70a619` | 131.635 ms | 139.870 ms | 1.063 | 0.930 |
+
+[761485d7 raw record](../candidate-761485d7/performance.json) · [42bb9a33 raw record](../candidate-42bb9a33/performance.json) · [bb70a619 primary record](performance.json)
+
+The receipts agree on the reported VM, unrestricted CPU masks under its four-core quota, four clients, 24-image input digest, guest and output digests, Pillow version, and three measured batches per route. Each image campaign ran the candidate first and used one newly opened cluster per build. The setup CLI was common to the two arms within each campaign. The Python driver timed the Unix socket exchange and checked the decoded PNG afterward. The `761485d7` and `42bb9a33` comparisons used identical daemon and setup CLI bytes, yet their p95 ratios were 1.071 and 1.510. Reversing order for the same `761485d7` comparison yielded a 0.817 ratio, and the identical-binary control yielded 0.968. The later fixed-CPU diagnostic at `bb70a619` found a median paired ratio of 1.068, with five of six pairs over the limit, and a ratio of build medians of 1.043. This history supports treating the tail as an unresolved, variable finding. It cannot assign the magnitude to a source change. [Order and identical-binary controls](../candidate-761485d7/performance-controls/results.md) · [Fixed-CPU diagnostics](one-remote-diagnostic/README.md) · [Image benchmark](../../../../../scripts/benchmark_image_batch.py)
+
+- **`864ae27b` to `761485d7`.** The daemon changed scheduler startup, teardown, and service ownership for Tailscale recovery. The benchmark configures direct Iroh with relays disabled. Its listener still spawns the same `serve_tasks` with the same per-request scheduler, transport and Wasm runtime. The new recovery supervisor is selected only for a Tailscale-only configuration. [Listener and transport selection](../../../../../crates/entangle-bin/src/remote/routes.rs)
+- **`761485d7` to `42bb9a33`.** The only change outside the review evidence was the agent-session integration test. Both measured daemon binaries and their common setup CLI matched byte-for-byte across campaigns. [Release digest comparison](../candidate-42bb9a33/security-scope-verification.log)
+- **`42bb9a33` to `bb70a619`.** The coordinator now borrows the JSON parameters and decodes request bytes directly. The scheduled task receives the same typed parameters, and the guest, kernel and postcard wire codec are unchanged. The current scheduler checks input size and prepares upload information during placement. The measured inputs were 144,626–145,554 bytes, below its 256 KiB sampling threshold. This path keeps the ordinary QUIC request, with the upload ACK measurement disabled, and supplies the existing score contribution. One named worker is eligible. The image driver bypasses the Rust RPC client during timing, and the RAW command is outside this workload. [Daemon JSON handler](../../../../../crates/entangle-bin/src/methods.rs) · [Placement](../../../../../crates/entangle-scheduler/src/placement.rs) · [Remote dispatch](../../../../../crates/entangle-scheduler/src/remote.rs) · [QUIC request](../../../../../crates/entangle-mesh-iroh/src/transport.rs)
+
+The reviewed path and existing measurements identify no specific source defect that explains the one-remote tail. The `bb70a619` primary p95 and throughput misses remain recorded. [Primary gate record](performance.md)

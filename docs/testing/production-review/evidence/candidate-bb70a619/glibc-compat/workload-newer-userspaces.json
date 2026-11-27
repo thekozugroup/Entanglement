@@ -1,0 +1,164 @@
+{
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "archive_sha256": "fdfb5caa3551620f19d2f991ae9ae36287b86cc5a553582f8423c56e1c6c2885",
+  "cli_sha256": "fd7bc57c79ca52baab731fa2f0965f8d7c94a864b9c1d1413ab253413b6e983a",
+  "daemon_sha256": "ee011e9d6a4f0f9d4752fcc90f7948bdb404b97cd757d2bbf2bff271923a6d49",
+  "sample_wasm_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+  "started": "2026-11-27T05:25:00.984645+00:00",
+  "finished": "2026-11-27T05:25:10.429583+00:00",
+  "highest_required_glibc": {
+    "entangle": "2.34",
+    "entangled": "2.34"
+  },
+  "dynamic_link_details": {
+    "entangle": {
+      "pidfd_imports": [
+        "153: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND pidfd_getpid",
+        "154: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND pidfd_spawnp"
+      ],
+      "needed": [
+        "0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]",
+        "0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]"
+      ]
+    },
+    "entangled": {
+      "pidfd_imports": [
+        "141: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND pidfd_getpid",
+        "142: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND pidfd_spawnp"
+      ],
+      "needed": [
+        "0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]",
+        "0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]"
+      ]
+    }
+  },
+  "scope": "one x86-64 Linux host, distinct disconnected Noble and Trixie userspaces",
+  "distro_workloads": {
+    "ubuntu:24.04": {
+      "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+      "digest": [
+        "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b"
+      ],
+      "version": "24.04",
+      "glibc": "2.39",
+      "command": [
+        "docker",
+        "run",
+        "-d",
+        "--pull=never",
+        "--network=none",
+        "--cap-drop=ALL",
+        "--read-only",
+        "--security-opt=no-new-privileges",
+        "--env",
+        "HOME=/tmp/entangle-home",
+        "--env",
+        "ENTANGLE_ALLOW_LOCAL=0",
+        "--env",
+        "TOKIO_WORKER_THREADS=2",
+        "--env",
+        "RAYON_NUM_THREADS=2",
+        "--tmpfs",
+        "/tmp:rw,nosuid,nodev,exec,size=256m",
+        "--mount",
+        "type=bind,src=/workspace/entangle-jammy-release-tg71w_up/archive-bins,dst=/candidate,readonly",
+        "--mount",
+        "type=bind,src=/workspace/entangle-jammy-release-tg71w_up/sample-newer,dst=/input,readonly",
+        "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+        "sleep",
+        "infinity"
+      ],
+      "network": "none",
+      "versions": [
+        "entangle 0.1.0",
+        "entangled 0.1.0"
+      ],
+      "daemon_log_sha256": "c007cd96b773d4205f16dcf5457710e373372cb2b1c5b935e38b77f0e2c367bd",
+      "local_rpc": {
+        "local_peer_id": "82ca1f55760016c2b3a11280ac00bfff",
+        "local_display_name": "bca6c467ead3",
+        "transports_active": [],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 0
+      },
+      "denied_before_trust": {
+        "exit_code": 1,
+        "stderr": "error: rpc -32000: server error: signature: ENTANGLE-E0101: publisher fingerprint not in keyring\n"
+      },
+      "publisher_public": "71867d67878f671692923e3f927246d9dd699ac81af9a550b3779b8c9ff41d15",
+      "plugin": "82ca1f55760016c2b3a11280ac00bfff/hello-world@0.1.0",
+      "success_load": "loaded 82ca1f55760016c2b3a11280ac00bfff/hello-world@0.1.0",
+      "input": "304a0a6ba1cb47e4115e7d48c33c800e",
+      "expected": "Hello, 304a0a6ba1cb47e4115e7d48c33c800e!",
+      "actual": "Hello, 304a0a6ba1cb47e4115e7d48c33c800e!",
+      "graceful_exit": 0
+    },
+    "debian:trixie-slim": {
+      "image_id": "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+      "digest": [
+        "debian@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0"
+      ],
+      "version": "13",
+      "glibc": "2.41",
+      "command": [
+        "docker",
+        "run",
+        "-d",
+        "--pull=never",
+        "--network=none",
+        "--cap-drop=ALL",
+        "--read-only",
+        "--security-opt=no-new-privileges",
+        "--env",
+        "HOME=/tmp/entangle-home",
+        "--env",
+        "ENTANGLE_ALLOW_LOCAL=0",
+        "--env",
+        "TOKIO_WORKER_THREADS=2",
+        "--env",
+        "RAYON_NUM_THREADS=2",
+        "--tmpfs",
+        "/tmp:rw,nosuid,nodev,exec,size=256m",
+        "--mount",
+        "type=bind,src=/workspace/entangle-jammy-release-tg71w_up/archive-bins,dst=/candidate,readonly",
+        "--mount",
+        "type=bind,src=/workspace/entangle-jammy-release-tg71w_up/sample-newer,dst=/input,readonly",
+        "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+        "sleep",
+        "infinity"
+      ],
+      "network": "none",
+      "versions": [
+        "entangle 0.1.0",
+        "entangled 0.1.0"
+      ],
+      "daemon_log_sha256": "621ce24b14ab0db79f76c943f31728fb5439be8872aa54c0f104e4ff1f2874cc",
+      "local_rpc": {
+        "local_peer_id": "7208da1b5006cd49420128d8abf46bf8",
+        "local_display_name": "9258a9ed1fea",
+        "transports_active": [],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 0
+      },
+      "denied_before_trust": {
+        "exit_code": 1,
+        "stderr": "error: rpc -32000: server error: signature: ENTANGLE-E0101: publisher fingerprint not in keyring\n"
+      },
+      "publisher_public": "feca22f98b1ddf569fb0971ab25b98c0b1ad0dd2835e114fd473dddc66f01475",
+      "plugin": "7208da1b5006cd49420128d8abf46bf8/hello-world@0.1.0",
+      "success_load": "loaded 7208da1b5006cd49420128d8abf46bf8/hello-world@0.1.0",
+      "input": "35f99438d4455f0427fce227d2daff50",
+      "expected": "Hello, 35f99438d4455f0427fce227d2daff50!",
+      "actual": "Hello, 35f99438d4455f0427fce227d2daff50!",
+      "graceful_exit": 0
+    }
+  },
+  "exit_code": 0
+}

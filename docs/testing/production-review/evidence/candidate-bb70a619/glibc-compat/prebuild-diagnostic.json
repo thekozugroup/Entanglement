@@ -1,0 +1,14 @@
+{
+  "stage": "before invoking Rust",
+  "exit_code": 1,
+  "command": [
+    "docker",
+    "update",
+    "--cpus=4",
+    "<supplemental-builder>"
+  ],
+  "diagnostic": "runc did not terminate successfully: openat2 /sys/fs/cgroup/<container>/cpu.max: no such file or directory",
+  "observed_container_cpu_max": "400000 100000",
+  "container_configuration_nano_cpus": 500000000,
+  "disposition": "Removed the unnecessary live cgroup update. Build uses existing rootless userspace and three Cargo jobs. No compilation had started."
+}

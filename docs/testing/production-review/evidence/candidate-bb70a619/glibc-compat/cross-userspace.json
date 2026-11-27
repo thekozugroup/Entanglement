@@ -1,0 +1,344 @@
+{
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "archive_sha256": "fdfb5caa3551620f19d2f991ae9ae36287b86cc5a553582f8423c56e1c6c2885",
+  "wasm_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+  "started_utc": "2026-11-27T05:26:58.182941+00:00",
+  "finished_utc": "2026-11-27T05:27:23.978460+00:00",
+  "scope": "two rootless amd64 Linux containers on one physical host, direct authenticated Iroh on an isolated bridge",
+  "network": {
+    "name": "ent-glibc-542a923d50",
+    "id": "da380a8e3f7256e2c9559e05014837f504440b6481b7956e7b6f01ad49dd95ac",
+    "internal": true,
+    "options": {
+      "com.docker.network.bridge.enable_ip_masquerade": "false"
+    }
+  },
+  "nodes": {
+    "jammy": {
+      "image": [
+        "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb"
+      ],
+      "container": "908b7497c5e4f021735fd6c7b5c179e9dde01deac1612de9708d81e59579856d",
+      "ip": "172.18.0.2",
+      "published_ports": {},
+      "version": "22.04",
+      "glibc": "2.35",
+      "kernel_ipv4_routes": "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT                                                       \neth0\t000012AC\t00000000\t0001\t0\t0\t0\t0000FFFF\t0\t0\t0",
+      "executables": {
+        "entangle": "fd7bc57c79ca52baab731fa2f0965f8d7c94a864b9c1d1413ab253413b6e983a",
+        "entangled": "ee011e9d6a4f0f9d4752fcc90f7948bdb404b97cd757d2bbf2bff271923a6d49"
+      },
+      "public": "8cdaa1fc30d158cac7bd573855d9a9e0bf1896129f23a085c891706bfe9e9376",
+      "plugin": "dc24bcffc699f078bca4ffb50d347618/hello-world@0.1.0",
+      "peer": "dc24bcffc699f078bca4ffb50d347618",
+      "config": "[mesh]\ntransports=[\"iroh\"]\nmulti_node=true\n[scheduler]\nrelay=false\nbind=\"172.18.0.2:7443\"\npeers=[\"1b0a0edb8ec2a9e3d261958c9bb064612962ce5c19f34e306764fdfb05890a8b@172.18.0.3:7443\"]\n",
+      "initial_mesh_status": {
+        "local_peer_id": "dc24bcffc699f078bca4ffb50d347618",
+        "local_display_name": "908b7497c5e4",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "graceful_exit": 0
+    },
+    "bookworm": {
+      "image": [
+        "debian@sha256:e67eeead736ff7bbe258ef088bff683635c561b1fcfefad0806c1df4ab49ce0e"
+      ],
+      "container": "00783b4439403ca55740f958e2efc8d718fb8ebed7bb98713208306198d8a444",
+      "ip": "172.18.0.3",
+      "published_ports": {},
+      "version": "12",
+      "glibc": "2.36",
+      "kernel_ipv4_routes": "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT                                                       \neth0\t000012AC\t00000000\t0001\t0\t0\t0\t0000FFFF\t0\t0\t0",
+      "executables": {
+        "entangle": "fd7bc57c79ca52baab731fa2f0965f8d7c94a864b9c1d1413ab253413b6e983a",
+        "entangled": "ee011e9d6a4f0f9d4752fcc90f7948bdb404b97cd757d2bbf2bff271923a6d49"
+      },
+      "public": "1b0a0edb8ec2a9e3d261958c9bb064612962ce5c19f34e306764fdfb05890a8b",
+      "plugin": "a2d27fa02f45c61c3c10ce38e6e70b96/hello-world@0.1.0",
+      "peer": "a2d27fa02f45c61c3c10ce38e6e70b96",
+      "config": "[mesh]\ntransports=[\"iroh\"]\nmulti_node=true\n[scheduler]\nrelay=false\nbind=\"172.18.0.3:7443\"\npeers=[\"8cdaa1fc30d158cac7bd573855d9a9e0bf1896129f23a085c891706bfe9e9376@172.18.0.2:7443\"]\n",
+      "initial_mesh_status": {
+        "local_peer_id": "a2d27fa02f45c61c3c10ce38e6e70b96",
+        "local_display_name": "00783b443940",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "graceful_exit": 0
+    }
+  },
+  "dispatches": [
+    {
+      "coordinator": "jammy",
+      "worker": "bookworm",
+      "coordinator_inventory": {
+        "plugins": []
+      },
+      "worker_inventory": {
+        "plugins": [
+          "a2d27fa02f45c61c3c10ce38e6e70b96/hello-world@0.1.0"
+        ]
+      },
+      "command": [
+        "docker",
+        "exec",
+        "908b7497c5e4f021735fd6c7b5c179e9dde01deac1612de9708d81e59579856d",
+        "/candidate/entangle",
+        "compute",
+        "dispatch",
+        "a2d27fa02f45c61c3c10ce38e6e70b96/hello-world@0.1.0",
+        "--raw",
+        "--input",
+        "398e94ce42cb54e0b2d656ceb8bd8ab8",
+        "--timeout-ms",
+        "5000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "a2d27fa02f45c61c3c10ce38e6e70b96"
+      ],
+      "input": "398e94ce42cb54e0b2d656ceb8bd8ab8",
+      "expected": "Hello, 398e94ce42cb54e0b2d656ceb8bd8ab8!",
+      "actual": "Hello, 398e94ce42cb54e0b2d656ceb8bd8ab8!",
+      "selected_peer": "a2d27fa02f45c61c3c10ce38e6e70b96",
+      "expected_peer": "a2d27fa02f45c61c3c10ce38e6e70b96",
+      "cli_diagnostic": "Chosen: a2d27fa02f45c61c3c10ce38e6e70b96 (score=1.60)\nReason: fit ok, rtt=1003ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "elapsed_s": 0.6443,
+      "retries": [
+        {
+          "exit_code": 1,
+          "elapsed": 0.06716374399911729,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        }
+      ]
+    },
+    {
+      "coordinator": "bookworm",
+      "worker": "jammy",
+      "coordinator_inventory": {
+        "plugins": []
+      },
+      "worker_inventory": {
+        "plugins": [
+          "dc24bcffc699f078bca4ffb50d347618/hello-world@0.1.0"
+        ]
+      },
+      "command": [
+        "docker",
+        "exec",
+        "00783b4439403ca55740f958e2efc8d718fb8ebed7bb98713208306198d8a444",
+        "/candidate/entangle",
+        "compute",
+        "dispatch",
+        "dc24bcffc699f078bca4ffb50d347618/hello-world@0.1.0",
+        "--raw",
+        "--input",
+        "bb73127540ab63279f4c18522d480cfc",
+        "--timeout-ms",
+        "5000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "dc24bcffc699f078bca4ffb50d347618"
+      ],
+      "input": "bb73127540ab63279f4c18522d480cfc",
+      "expected": "Hello, bb73127540ab63279f4c18522d480cfc!",
+      "actual": "Hello, bb73127540ab63279f4c18522d480cfc!",
+      "selected_peer": "dc24bcffc699f078bca4ffb50d347618",
+      "expected_peer": "dc24bcffc699f078bca4ffb50d347618",
+      "cli_diagnostic": "Chosen: dc24bcffc699f078bca4ffb50d347618 (score=2.20)\nReason: fit ok, rtt=2ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "elapsed_s": 13.6576,
+      "retries": [
+        {
+          "exit_code": 1,
+          "elapsed": 0.06651975400018273,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 0.645536682997772,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 1.218644000000495,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 1.7938931079988834,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 2.363367661000666,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 2.952348358998279,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 3.5732516089992714,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 4.207157038999867,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 4.805984454000281,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 5.378928420999728,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 5.96718436899755,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 6.594704849998379,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 7.172310256999481,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 7.745700717998261,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 8.339848995998182,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 8.967799702997581,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 9.543393780997576,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 10.122210293997341,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 10.701100365000457,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 11.339703581998037,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 11.910639907000586,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 12.499359585999628,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        },
+        {
+          "exit_code": 1,
+          "elapsed": 13.073389129000134,
+          "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool"
+        }
+      ]
+    }
+  ],
+  "cleanup": [
+    {
+      "command": [
+        "docker",
+        "exec",
+        "00783b4439403ca55740f958e2efc8d718fb8ebed7bb98713208306198d8a444",
+        "sh",
+        "-ec",
+        "kill -TERM \"$(cat /tmp/daemon.pid)\""
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "exec",
+        "908b7497c5e4f021735fd6c7b5c179e9dde01deac1612de9708d81e59579856d",
+        "sh",
+        "-ec",
+        "kill -TERM \"$(cat /tmp/daemon.pid)\""
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "rm",
+        "-f",
+        "00783b4439403ca55740f958e2efc8d718fb8ebed7bb98713208306198d8a444"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "rm",
+        "-f",
+        "908b7497c5e4f021735fd6c7b5c179e9dde01deac1612de9708d81e59579856d"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "network",
+        "rm",
+        "ent-glibc-542a923d50"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    }
+  ],
+  "daemon_log_sha256": {
+    "jammy": "10ecb4189a0679ca50d57f63118b1aef153b3d7d6c71b0f21ebba8517af70809",
+    "bookworm": "e9c68a86a60c8058b1cb094c057bc19f009d62d8bcbc32b29637cf3edacc7fef"
+  },
+  "exit_code": 0
+}

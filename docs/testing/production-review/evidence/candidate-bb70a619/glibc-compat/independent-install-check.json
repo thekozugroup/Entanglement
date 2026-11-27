@@ -1,0 +1,59 @@
+{
+  "started_utc": "2026-11-27T05:25:35.859832+00:00",
+  "finished_utc": "2026-11-27T05:25:49.055443+00:00",
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "review_head": "dd702ae71d8207556d1a7adcb6569576a95a4560",
+  "archive_sha256": "fdfb5caa3551620f19d2f991ae9ae36287b86cc5a553582f8423c56e1c6c2885",
+  "installer_sha256": "f10a849eb788495cb744ee9a534ffc4fd9d88189f1288d3026ae96009a62a217",
+  "fixture_sha256": "9c8a73a97d4af293359a4bbf41fe664cc9316e57728b76af9de769f7f3777395",
+  "runner_sha256": "ebad46f55e6b59efe46d11b298af5ca6a39642579e0f5d3286b3a6fe9d4ea9fd",
+  "openssl_sha256": "acc10176d038aeb7b2a77d9ec972ac2985857a7191f7aecb7c54ef0e2c7e9549",
+  "archive_files": [
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/LICENSE",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/README.md",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/architecture.md",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/tutorial.md"
+  ],
+  "userspaces": {
+    "ubuntu:22.04": {
+      "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+      "version": "22.04",
+      "network": "none",
+      "post_install_binary_sha256": {
+        "entangle": "fd7bc57c79ca52baab731fa2f0965f8d7c94a864b9c1d1413ab253413b6e983a",
+        "entangled": "ee011e9d6a4f0f9d4752fcc90f7948bdb404b97cd757d2bbf2bff271923a6d49",
+        "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "README.md": "e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0",
+        "architecture.md": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0",
+        "tutorial.md": "795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11"
+      },
+      "denied_before_trust_exit": 1,
+      "nonce": "independent-supplemental-check",
+      "output": "Hello, independent-supplemental-check!",
+      "daemon_exit": 0
+    },
+    "debian:bookworm-slim": {
+      "image_id": "sha256:b1cc73e64d14d8ef890b767427fe0cc67eb4b78ee513cc7166e739f25e2de095",
+      "version": "12",
+      "network": "none",
+      "post_install_binary_sha256": {
+        "entangle": "fd7bc57c79ca52baab731fa2f0965f8d7c94a864b9c1d1413ab253413b6e983a",
+        "entangled": "ee011e9d6a4f0f9d4752fcc90f7948bdb404b97cd757d2bbf2bff271923a6d49",
+        "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "README.md": "e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0",
+        "architecture.md": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0",
+        "tutorial.md": "795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11"
+      },
+      "denied_before_trust_exit": 1,
+      "nonce": "independent-supplemental-check",
+      "output": "Hello, independent-supplemental-check!",
+      "daemon_exit": 0
+    }
+  },
+  "scope": "One x86-64 host, two isolated older GNU/Linux userlands, supplemental unsigned local archive; no production release authentication or independent hardware claim.",
+  "exit_code": 0
+}

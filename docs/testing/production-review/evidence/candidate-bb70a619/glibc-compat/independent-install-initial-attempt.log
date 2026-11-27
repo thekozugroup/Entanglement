@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/glibc-compat/independent-install-check.py", line 21, in <module>
+    start=now(); before=source(); m=json.loads(A.with_name('verification.json').read_text())
+                        ^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/glibc-compat/independent-install-check.py", line 19, in source
+    assert get(['git','-C',str(R),'rev-parse','HEAD'])==C
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

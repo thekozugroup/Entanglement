@@ -1,0 +1,15 @@
+linux/x86_64 openssl mode=positive, native archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version 0.1.0 --prefix /tmp/supplemental-installer-osn8temj/install/home/install/bin -> 0
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 fdfb5caa3551620f19d2f991ae9ae36287b86cc5a553582f8423c56e1c6c2885
+  entangle 0.1.0, installed SHA-256 fd7bc57c79ca52baab731fa2f0965f8d7c94a864b9c1d1413ab253413b6e983a
+  entangled 0.1.0, installed SHA-256 ee011e9d6a4f0f9d4752fcc90f7948bdb404b97cd757d2bbf2bff271923a6d49
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/glibc-compat/independent-install-check.py", line 47, in <module>
+    assert get(ex('/installed/'+n,'--version'))==n+' 0.1.0'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/glibc-compat/independent-install-check.py", line 19, in get
+    if r.returncode:raise RuntimeError(f'{args!r}: exit {r.returncode}; stdout={r.stdout!r}; stderr={r.stderr!r}')
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: ['docker', 'exec', '064770bd88146eaaf565e20e7d02e72d6c7ea16453eab943565e3e6cd44467e3', '/installed/entangle', '--version']: exit 126; stdout='OCI runtime exec failed: exec failed: unable to start container process: exec: "/installed/entangle": stat /installed/entangle: permission denied\n'; stderr=''

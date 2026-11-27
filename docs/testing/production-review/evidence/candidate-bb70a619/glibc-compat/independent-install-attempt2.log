@@ -1,0 +1,20 @@
+linux/x86_64 openssl mode=positive, native archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version 0.1.0 --prefix /tmp/supplemental-installer-qmbjrx_q/install/home/install/bin -> 0
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 fdfb5caa3551620f19d2f991ae9ae36287b86cc5a553582f8423c56e1c6c2885
+  entangle 0.1.0, installed SHA-256 fd7bc57c79ca52baab731fa2f0965f8d7c94a864b9c1d1413ab253413b6e983a
+  entangled 0.1.0, installed SHA-256 ee011e9d6a4f0f9d4752fcc90f7948bdb404b97cd757d2bbf2bff271923a6d49
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/glibc-compat/independent-install-check.py", line 44, in <module>
+    assert get(ex('/installed/'+n,'--version'))==n+' 0.1.0'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/glibc-compat/independent-install-check.py", line 17, in get
+    def get(args):return run(args,check=True).stdout.strip()
+                         ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/glibc-compat/independent-install-check.py", line 16, in run
+    def run(args,**kw):return subprocess.run(args,timeout=40,capture_output=True,text=True,**kw)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['docker', 'exec', '4b4434dba6b96c6fd9ce5fc403c054cbcd4a05ca6301814e839c8a707337780f', '/installed/entangle', '--version']' returned non-zero exit status 126.

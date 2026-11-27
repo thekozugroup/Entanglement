@@ -1,0 +1,8 @@
+{
+  "commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "workspace": "/workspace/entangle-jammy-release-tg71w_up",
+  "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+  "container": "1c62151c6508799c8f0abd69ae729b044b309956142ae157a446c9fc0f618a49",
+  "networks_for_build": {}
+}

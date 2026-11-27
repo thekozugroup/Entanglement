@@ -1,0 +1,23 @@
+{
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "size": 28889618,
+  "sha256": "fdfb5caa3551620f19d2f991ae9ae36287b86cc5a553582f8423c56e1c6c2885",
+  "blake3": "13e1d1022a2252f5b274e10f87c72b4d95f2ce9cad06607bb1bd429d3d53efb0",
+  "signing_status": "unsigned local compatibility candidate",
+  "files_sha256": {
+    "entangle": "fd7bc57c79ca52baab731fa2f0965f8d7c94a864b9c1d1413ab253413b6e983a",
+    "entangled": "ee011e9d6a4f0f9d4752fcc90f7948bdb404b97cd757d2bbf2bff271923a6d49",
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.md": "e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0",
+    "architecture.md": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0",
+    "tutorial.md": "795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11"
+  },
+  "tool_sha256": "174a2ad4bc313b42b0ac3e0fb78d21322bd2d2c31a2e83dc9373d6d231c9d018",
+  "verification_log_sha256": "b865f8ea163f7361f24c305ccab39098f464764b2be77d232ffbbbfa2eb1a25d",
+  "canonical_source_archive_sha256": "e2538c818ff960801f882001023ba0f3601a821944660cf382dfe6ea0d7c5aa2",
+  "build_receipt_sha256": "9a06c1abb52cdb9e3e9991d2ca3b2d142a3beca2b7b3c44df37aec7010371128"
+}

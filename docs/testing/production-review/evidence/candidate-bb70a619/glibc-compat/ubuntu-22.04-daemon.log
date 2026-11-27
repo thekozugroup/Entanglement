@@ -1,0 +1,9 @@
+{"timestamp":"2026-11-27T05:24:16.250492Z","level":"INFO","fields":{"message":"entangled starting","version":"0.1.0","socket":"/tmp/entangle-home/.entangle/sock","pid":71},"target":"entangled"}
+{"timestamp":"2026-11-27T05:24:16.250635Z","level":"INFO","fields":{"message":"RPC server listening","socket_path":"/tmp/entangle-home/.entangle/sock"},"target":"entangle_bin::server"}
+{"timestamp":"2026-11-27T05:24:16.251450Z","level":"INFO","fields":{"message":"daemon identity ready","local_peer_id":"fb3967b72b6e1a76929954affce451dd"},"target":"entangled"}
+{"timestamp":"2026-11-27T05:24:16.252609Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/entangle-home/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T05:24:16.620440Z","level":"INFO","fields":{"message":"broker audit","event":"PluginRegistered { plugin: PluginId { publisher: \"fb3967b72b6e1a76929954affce451dd\", name: \"hello-world\", version: Version { major: 0, minor: 1, patch: 0 } }, declared_tier: Pure, implied_tier: Pure, effective_tier: Pure, at: SystemTime { tv_sec: 1795757056, tv_nsec: 620436224 } }"},"target":"entangle::audit"}
+{"timestamp":"2026-11-27T05:24:16.787027Z","level":"INFO","fields":{"message":"received SIGTERM"},"target":"entangled"}
+{"timestamp":"2026-11-27T05:24:16.787055Z","level":"INFO","fields":{"message":"shutting down entangled"},"target":"entangled"}
+{"timestamp":"2026-11-27T05:24:16.787090Z","level":"INFO","fields":{"message":"maintenance loop shut down cleanly"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T05:24:16.787123Z","level":"INFO","fields":{"message":"entangled stopped"},"target":"entangled"}

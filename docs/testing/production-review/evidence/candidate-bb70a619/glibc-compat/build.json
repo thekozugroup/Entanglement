@@ -1,0 +1,37 @@
+{
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "binary_source_tree_sha256": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "effective_cpu_max": "400000 100000",
+  "locked_verified_crate_tarballs": 616,
+  "lock_sha256": "2ea7955d2dd3a3b91c6a31832d1ea0d0bef4613d8bbce8083cce56675dded0d9",
+  "source_bundle_sha256": "ff729aa83883e1bd31b8e3da53a290a14520fa508a21a2e0ae69863e3df5c0ef",
+  "compiler": {
+    "rustc": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e",
+    "cargo": "e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b"
+  },
+  "system_packages_sha256": "ee301c719f553ee205bdf321f2a88962f14a20270e7c9941c9a5a3a02727a167",
+  "container": "1c62151c6508799c8f0abd69ae729b044b309956142ae157a446c9fc0f618a49",
+  "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+  "scope": "clean rootless offline Ubuntu 22.04 build; no prebuilt native project artifacts",
+  "script_sha256": "57cb7b743a60963b76a8f9ac3ba0b5b017c2c068747bee28f000da51f7a5d65a",
+  "command": [
+    "docker",
+    "exec",
+    "1c62151c6508799c8f0abd69ae729b044b309956142ae157a446c9fc0f618a49",
+    "/bin/bash",
+    "/tmp/build.sh"
+  ],
+  "started_utc": "2026-11-27T05:12:50.747533+00:00",
+  "finished_utc": "2026-11-27T05:23:50.895578+00:00",
+  "exit_code": 0,
+  "log_sha256": "2d7f13130e0d10578cd5537a027bb32ab069f71d68da6e241eaf005786fe6d10",
+  "binary_sha256": {
+    "xtask": "624c8eef5d2f8796394ce8c4554ec28fc565ccd375b5fe1f90cc9317463484b7",
+    "entangled": "ee011e9d6a4f0f9d4752fcc90f7948bdb404b97cd757d2bbf2bff271923a6d49",
+    "cargo-entangle": "174a2ad4bc313b42b0ac3e0fb78d21322bd2d2c31a2e83dc9373d6d231c9d018",
+    "entangle": "fd7bc57c79ca52baab731fa2f0965f8d7c94a864b9c1d1413ab253413b6e983a"
+  }
+}
