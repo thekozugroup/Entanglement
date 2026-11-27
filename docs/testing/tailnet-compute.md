@@ -41,3 +41,13 @@ python3 scripts/tests/private-tailnet.py
 ```
 
 Use `--bin-dir` and `--wasm` to select other built artifacts. The receipt includes the authenticated executor, generated plugin output, observed WireGuard path and revocation result.
+
+### Exercise service restarts and ACL changes
+
+With the same prerequisites and disposable network, run the longer recovery check.
+
+```sh
+python3 scripts/tests/private-tailnet.py --recovery
+```
+
+The check starts both Entanglement daemons with Tailscale offline and verifies that neither has opened a scheduler port. After Tailscale starts, it opens a fresh connection under a policy that denies the scheduler's UDP port and permits a separate control port. It restores scheduler access and verifies a signed job. It then restarts the two Tailscale services in turn, leaving the Entanglement processes running. The receipt records whether the same authenticated worker serves fresh jobs, whether revocation takes effect across a link interruption, and whether the daemons shut down cleanly. Keep the receipt with the candidate binary checksums. This harness uses two network namespaces on one Linux kernel. For the two-host release gate, also run the coordinator and worker check above on independent devices.

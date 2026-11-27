@@ -166,6 +166,21 @@ pub fn spawn_streaming_task_server(
     inference: Option<&crate::config::InferenceConfig>,
     bridge: Option<Arc<dyn entangle_scheduler::relay::RelayHandler>>,
 ) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(entangle_scheduler::serve_tasks(
+        transport,
+        streaming_task_server(kernel, store, capabilities, identity, inference, bridge),
+    ))
+}
+
+/// Build the service once so replay protection and stream limits survive a socket replacement.
+pub fn streaming_task_server(
+    kernel: Arc<Kernel>,
+    store: PeerStore,
+    capabilities: WorkerInfo,
+    identity: IdentityKeyPair,
+    inference: Option<&crate::config::InferenceConfig>,
+    bridge: Option<Arc<dyn entangle_scheduler::relay::RelayHandler>>,
+) -> Arc<RemoteTaskServer> {
     let mut executor: Arc<dyn entangle_scheduler::stream::StreamExecutor> = kernel.clone();
     if let Some(config) = inference {
         match crate::inference::Inference::new(config, &identity, kernel.clone()) {
@@ -186,7 +201,7 @@ pub fn spawn_streaming_task_server(
     .with_capabilities(capabilities)
     .with_stream_executor(identity, executor)
     .with_relay_handler(bridge);
-    tokio::spawn(entangle_scheduler::serve_tasks(transport, Arc::new(server)))
+    Arc::new(server)
 }
 
 /// Build the outbound address book from `[scheduler] peers`.

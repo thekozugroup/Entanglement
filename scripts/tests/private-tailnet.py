@@ -80,12 +80,13 @@ def await_ready(name, *command):
     raise RuntimeError(f"{name} did not become ready")
 
 
-def run_check(work, cleanup, binaries, wasm, bridge=False):
+def run_check(work, cleanup, binaries, wasm, bridge=False, recovery=False):
     network = "entangle-wg-" + secrets.token_hex(6)
     control = network + "-control"
     certs = work / "control"
     certs.mkdir()
-    (certs / "config.yaml").write_text(CONTROL_CONFIG)
+    config = CONTROL_CONFIG.replace("mode: file", "mode: database") if recovery else CONTROL_CONFIG
+    (certs / "config.yaml").write_text(config)
     run("openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
         "-keyout", certs / "tls.key", "-out", certs / "tls.crt", "-subj", "/CN=hs.test",
         "-addext", "subjectAltName=DNS:hs.test")
@@ -108,11 +109,21 @@ def run_check(work, cleanup, binaries, wasm, bridge=False):
         name = network + "-" + role
         sock = work / (role + "-sock")
         sock.mkdir()
-        start(name, "--network", network, "--hostname", role,
+        namespace = name
+        network_args = ["--network", network, "--hostname", role]
+        state = "mem:"
+        if recovery:
+            # Keep the application network namespace and node registration across sidecar restarts.
+            namespace = name + "-ns"
+            start(namespace, *network_args, "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                  APP, "sleep", "infinity")
+            network_args = ["--network", "container:" + namespace]
+            state = "/var/lib/tailscale/tailscaled.state"
+        start(name, *network_args,
               "--device=/dev/net/tun", "--cap-add=NET_ADMIN", "--entrypoint", "tailscaled",
               "-v", f"{sock}:/var/run/tailscale", "-v", f"{certs}/tls.crt:/tmp/hs.crt:ro",
               "-e", "NO_PROXY=hs.test", "-e", "no_proxy=hs.test", "-e", "SSL_CERT_FILE=/tmp/hs.crt",
-              TAILSCALE, "--state=mem:", "--no-logs-no-support", "--port=41641")
+              TAILSCALE, "--state=" + state, "--no-logs-no-support", "--port=41641")
         await_ready(name, "test", "-S", "/var/run/tailscale/tailscaled.sock")
         key = json.loads(run(*hs, "preauthkeys", "create", "-u", str(user["id"]), "-o", "json").stdout)["key"]
         run("docker", "exec", "-i", name, "sh", "-ec", "umask 077; cat >/tmp/register.key", data=key)
@@ -124,7 +135,7 @@ def run_check(work, cleanup, binaries, wasm, bridge=False):
         iface = run("docker", "exec", name, "ip", "-brief", "addr", "show", "tailscale0").stdout
         if addr + "/" not in iface:
             raise RuntimeError(f"{role}: missing kernel TUN address {addr}")
-        nodes[role] = {"name": name, "sock": sock, "id": status["Self"]["ID"], "addr": addr}
+        nodes[role] = {"name": name, "namespace": namespace, "sock": sock, "id": status["Self"]["ID"], "addr": addr}
     worker = nodes["worker"]
     coordinator = nodes["coordinator"]
     ping = run("docker", "exec", coordinator["name"], "tailscale", "ping", "--c=5",
@@ -132,6 +143,9 @@ def run_check(work, cleanup, binaries, wasm, bridge=False):
     if " via " not in ping or not any(" via " in s and "DERP(" not in s for s in ping.splitlines()):
         raise RuntimeError("Tailscale did not establish a direct WireGuard path")
 
+    if recovery:
+        from private_recovery import prepare_port_controls
+        policy, cold_controls = prepare_port_controls(nodes, run, start, hs, certs, APP)
     ts_cli = work / "tailscale"
     run("docker", "cp", worker["name"] + ":/usr/local/bin/tailscale", ts_cli)
     def cli(node, *args):
@@ -149,6 +163,10 @@ def run_check(work, cleanup, binaries, wasm, bridge=False):
         node["peer"] = next(e["fingerprint"] for e in entries if e["public_key"] == node["pub"])
 
     cli(worker, "plugins", "build", REPO / "plugins/json-pointer", "--wasm", wasm, "--out", worker["home"] / "package")
+    if recovery:
+        # These enrolled devices still exist in Headscale, but the kernel links must be absent at app launch.
+        for node in nodes.values():
+            run("docker", "stop", "-t", "4", node["name"])
     for role, node in nodes.items():
         other = coordinator if role == "worker" else worker
         cli(node, "mesh", "trust", other["peer"], "--public-key-hex", other["pub"], "--display-name", "test peer")
@@ -161,7 +179,7 @@ def run_check(work, cleanup, binaries, wasm, bridge=False):
         # Rootless Docker can map host file ownership differently from the host's numeric UID.
         owner = run("docker", "run", "--rm", "--pull=never", "--network=none",
                     "-v", f'{node["home"]}:/home-check:ro', APP, "stat", "-c", "%u:%g", "/home-check").stdout.strip()
-        start(app, "--network", "container:" + node["name"], "--user", owner,
+        start(app, "--network", "container:" + node["namespace"], "--user", owner,
               "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
               "-e", "HOME=/ent-home", "-e", "TOKIO_WORKER_THREADS=2",
               "-v", f'{node["home"]}:/ent-home', "-v", f'{node["sock"]}:/var/run/tailscale',
@@ -171,6 +189,10 @@ def run_check(work, cleanup, binaries, wasm, bridge=False):
         await_ready(app, "entangle", "mesh", "status", "--json")
         if role == "worker":
             run("docker", "exec", app, "entangle", "plugins", "load", "/ent-home/package")
+
+    if recovery:
+        from private_recovery import check_recovery
+        return check_recovery(nodes, run, policy, cold_controls, ping.strip().splitlines()[-1])
 
     snapshot = run("docker", "exec", worker["app"], "python3", "/tmp/check.py", "worker").stdout
     receipt = json.loads(run("docker", "exec", "-i", coordinator["app"], "python3", "/tmp/check.py",
@@ -190,7 +212,9 @@ def run_check(work, cleanup, binaries, wasm, bridge=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bridge", action="store_true", help="also test a three-node Iroh-to-WireGuard bridge")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--recovery", action="store_true", help="test private ACLs, service restart, revocation and shutdown")
+    mode.add_argument("--bridge", action="store_true", help="also test a three-node Iroh-to-WireGuard bridge")
     parser.add_argument("--bin-dir", type=Path, default=REPO / "target/release")
     parser.add_argument("--wasm", type=Path, default=REPO / "plugins/json-pointer/target/wasm32-wasip2/release/entangle_json_pointer.wasm")
     args = parser.parse_args()
@@ -201,7 +225,7 @@ def main():
         if run("docker", "image", "inspect", image, check=False).returncode:
             parser.error(f"missing local image: {image}")
     with tempfile.TemporaryDirectory(prefix="entangle-private-tailnet-") as directory, ExitStack() as cleanup:
-        receipt = run_check(Path(directory), cleanup, args.bin_dir.resolve(), args.wasm.resolve(), args.bridge)
+        receipt = run_check(Path(directory), cleanup, args.bin_dir.resolve(), args.wasm.resolve(), args.bridge, args.recovery)
     print(json.dumps(receipt))
 
 

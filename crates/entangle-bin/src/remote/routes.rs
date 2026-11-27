@@ -6,11 +6,11 @@ use std::sync::{Arc, OnceLock, RwLock};
 use std::time::Duration;
 
 use anyhow::{ensure, Context};
-use entangle_mesh_iroh::{IrohPeer, MeshIroh};
+use entangle_mesh_iroh::{DynMeshTransport, IrohPeer, MeshIroh, MeshTransport};
 use entangle_mesh_local::{Discovery, PeerSeen};
 use entangle_mesh_tailscale::{MeshTailscale, TailnetStatus};
 use entangle_peers::PeerStore;
-use entangle_scheduler::{PeerAddressBook, PeerAllowlist};
+use entangle_scheduler::{PeerAddressBook, PeerAllowlist, RemoteTaskServer};
 use entangle_signing::{IdentityKeyPair, IdentityPublicKey};
 use entangle_types::peer_id::PeerId;
 use tokio::sync::watch;
@@ -22,13 +22,16 @@ use super::{
     bind_scheduler, configured_peers, parse_bind, scheduler_transport_enabled, PeerStoreAllowlist,
 };
 
+mod supervisor;
+use supervisor::TailnetSupervisor;
+
 const REFRESH_INTERVAL: Duration = Duration::from_secs(30);
 const BIND_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// A bound scheduler endpoint and the address book for its dispatcher.
 pub struct PreparedScheduler {
     /// Authenticated scheduler endpoint shared by the client and server.
-    pub transport: Arc<MeshIroh>,
+    pub transport: DynMeshTransport,
     /// Looks up configured addresses and checks current trust at dispatch time.
     pub addresses: Arc<dyn PeerAddressBook>,
     /// LAN routes when both mDNS discovery and Iroh dispatch are enabled.
@@ -38,10 +41,49 @@ pub struct PreparedScheduler {
     /// Transport names currently available, refreshed with the tailnet routes.
     pub active_transports: watch::Receiver<Vec<String>>,
     refresh: Option<JoinHandle<()>>,
+    listener: Option<Listener>,
+    serving: Option<JoinHandle<()>>,
+}
+
+enum Listener {
+    Direct(Arc<MeshIroh>),
+    Tailnet(Box<TailnetSupervisor>),
+}
+
+impl PreparedScheduler {
+    /// Attach the daemon's single service to the selected listener.
+    pub fn serve(&mut self, server: Arc<RemoteTaskServer>) -> anyhow::Result<()> {
+        let listener = self
+            .listener
+            .take()
+            .context("scheduler service already started or shut down")?;
+        self.serving = Some(match listener {
+            Listener::Direct(endpoint) => {
+                tokio::spawn(entangle_scheduler::serve_tasks(endpoint, server))
+            }
+            Listener::Tailnet(supervisor) => tokio::spawn(supervisor.run(server)),
+        });
+        Ok(())
+    }
+
+    /// Stop accepting jobs, release the socket and wait for the serving task.
+    pub async fn shutdown(&mut self) {
+        self.listener.take();
+        if let Some(refresh) = self.refresh.take() {
+            refresh.abort();
+        }
+        self.transport.shutdown().await;
+        if let Some(task) = self.serving.take() {
+            let _ = task.await;
+        }
+    }
 }
 
 impl Drop for PreparedScheduler {
     fn drop(&mut self) {
+        if let Some(task) = self.serving.take() {
+            task.abort();
+        }
         if let Some(task) = self.refresh.take() {
             task.abort();
         }
@@ -294,7 +336,7 @@ async fn prepare_with_discovery(
     let iroh = cfg.mesh.transports.iter().any(|t| t == "iroh");
     let tailscale = cfg.mesh.transports.iter().any(|t| t == "tailscale");
     let mut active_transports = Vec::new();
-    let mut bind = parse_bind(&cfg.scheduler)?;
+    let bind = parse_bind(&cfg.scheduler)?;
     let mut peer_ids = BTreeSet::new();
     let mut static_peers = HashMap::new();
     if iroh {
@@ -321,19 +363,28 @@ async fn prepare_with_discovery(
                 }
             }
         }
+        if !iroh {
+            return supervisor::prepare(
+                bind,
+                identity,
+                store,
+                mesh,
+                mappings,
+                peer_ids,
+                refresh_interval,
+            )
+            .await
+            .map(Some);
+        }
         match online_status(&mesh, bind).await {
-            Ok((status, local)) => {
-                if !iroh {
-                    bind = local;
-                }
+            Ok((status, _)) => {
                 active_transports.push("tailscale".to_owned());
                 tailnet = snapshot_routes(&status, &mappings, bind);
             }
-            Err(e) if iroh => {
+            Err(e) => {
                 tracing::warn!(error = %e, "Tailscale unavailable, continuing with Iroh");
                 previous_error = Some(e.to_string());
             }
-            Err(e) => return Err(e),
         }
     }
 
@@ -393,6 +444,8 @@ async fn prepare_with_discovery(
     });
     Ok(Some(PreparedScheduler {
         lan,
+        listener: Some(Listener::Direct(transport.clone())),
+        serving: None,
         transport,
         addresses,
         peer_ids: peer_ids.into_iter().collect(),

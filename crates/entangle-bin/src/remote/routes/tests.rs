@@ -171,8 +171,7 @@ fn snapshots_follow_only_mapped_online_nodes_and_current_trust() {
 
 #[cfg(unix)]
 #[tokio::test]
-async fn a_missing_tailscale_cli_only_blocks_a_tailscale_only_listener() {
-    use entangle_mesh_iroh::MeshTransport;
+async fn offline_start_preserves_identity_without_a_listener_and_other_modes_keep_working() {
     use entangle_mesh_tailscale::MeshTailscaleConfig;
 
     let dir = tempfile::tempdir().unwrap();
@@ -196,6 +195,11 @@ async fn a_missing_tailscale_cli_only_blocks_a_tailscale_only_listener() {
         vec!["iroh", "tailscale"],
     ] {
         cfg.mesh.transports = transports.iter().copied().map(str::to_owned).collect();
+        if transports == ["tailscale"] {
+            cfg.scheduler.bind = "0.0.0.0:0".into();
+        } else {
+            cfg.scheduler.bind = "127.0.0.1:0".into();
+        }
         let result = prepare_with_discovery(
             &cfg,
             &identity,
@@ -208,10 +212,45 @@ async fn a_missing_tailscale_cli_only_blocks_a_tailscale_only_listener() {
         if transports.is_empty() {
             assert!(result.unwrap().is_none());
         } else if transports == ["tailscale"] {
-            assert!(
-                result.is_err(),
-                "unavailable tailnet cannot fall back to a general listener"
+            let mut mesh = result.unwrap().unwrap();
+            assert!(mesh.active_transports.borrow().is_empty());
+            assert!(mesh.transport.local_addrs().is_empty());
+            assert_eq!(mesh.transport.local_peer_id(), local);
+            assert_eq!(
+                mesh.transport.local_public_key(),
+                *identity.public().as_bytes()
             );
+            let remote = IrohPeer::new(
+                *IdentityKeyPair::generate().public().as_bytes(),
+                "100.64.0.9:7443".parse::<SocketAddr>().unwrap(),
+            );
+            assert!(mesh.transport.connect(&remote).await.is_err());
+            let server = Arc::new(RemoteTaskServer::new(
+                Arc::new(
+                    entangle_runtime::Kernel::new(
+                        entangle_runtime::KernelConfig::default(),
+                        entangle_signing::Keyring::new(),
+                    )
+                    .unwrap(),
+                ),
+                Arc::new(PeerStoreAllowlist::new(store.clone())),
+                local,
+            ));
+            mesh.serve(server).unwrap();
+            tokio::time::timeout(Duration::from_secs(2), mesh.shutdown())
+                .await
+                .unwrap();
+            cfg.scheduler.bind = "127.0.0.1:7443".into();
+            assert!(prepare_with_discovery(
+                &cfg,
+                &identity,
+                &store,
+                local,
+                missing_cli(),
+                REFRESH_INTERVAL
+            )
+            .await
+            .is_err());
         } else {
             let mesh = result.unwrap().unwrap();
             assert_eq!(&*mesh.active_transports.borrow(), &["iroh"]);
@@ -223,7 +262,6 @@ async fn a_missing_tailscale_cli_only_blocks_a_tailscale_only_listener() {
 #[cfg(unix)]
 #[tokio::test]
 async fn mixed_listener_reloads_routes_and_status_from_the_local_cli() {
-    use entangle_mesh_iroh::MeshTransport;
     use entangle_mesh_tailscale::MeshTailscaleConfig;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;

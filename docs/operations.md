@@ -288,7 +288,13 @@ entangle compute dispatch '<publisher>/json-pointer@0.1.0' \
 
 The daemon refreshes tailnet address hints every 30 seconds and polls configured workers for hardware and loaded plugin versions every 15 seconds. Each scheduler connection authenticates the worker's Entanglement key. Both sides consult the persisted trust store when authorizing work. A mapping can remain in the configuration after revocation.
 
-The default address family is IPv4. Use `[::]:7443` on hosts using Tailscale IPv6. If Tailscale was offline when a Tailscale-only daemon started, or its local bound IP changed, restart Entanglement after the interface is ready. In mixed `["iroh", "tailscale"]` mode the ordinary Iroh listener and relay policy apply. Linux and macOS host deployments can use this mode with a working Tailscale interface. Userspace-only SOCKS deployments and MagicDNS service publication are outside this implementation.
+The default address family is IPv4. Use `[::]:7443` on hosts using Tailscale IPv6. A Tailscale-only daemon can start before the local Tailscale service. Local commands remain available while the scheduler waits for a verified tailnet address. During that wait, `entangle mesh status` shows no active scheduler transport and the daemon leaves the scheduler port unbound.
+
+After a successful initial bind, a Tailscale-only daemon can recover from a later `tailscaled` restart. When it detects loss of the listener or local address, it withdraws its routes. It retries the bind at intervals of 1 to 15 seconds using the same Entanglement identity and UDP port. A configured wildcard can select a new local tailnet address in the same IP family. An explicitly configured address must return before the listener can recover. Check `entangle mesh status` on both devices, then submit a fresh job and verify the selected peer. A worker's advertised capabilities can take another polling cycle to return. Interrupted jobs may have executed before the connection failed. Check the job's effects before submitting it again.
+
+Tailnet policy controls network reachability. Applying a narrower ACL can leave an established UDP flow usable for a time. To withdraw a peer's permission to submit jobs, run `entangle mesh revoke <peer-id>` on the worker. The worker enforces its current trust store when the link returns.
+
+In mixed `["iroh", "tailscale"]` mode the ordinary Iroh listener and relay policy apply. Linux and macOS host deployments can use this mode with a working Tailscale interface. Userspace-only SOCKS deployments and MagicDNS service publication are outside this implementation.
 
 Run the two-device acceptance check to verify the selected peer and plugin output over a live tailnet. [Tailnet compute test](testing/tailnet-compute.md)
 

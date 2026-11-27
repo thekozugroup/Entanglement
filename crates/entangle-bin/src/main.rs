@@ -10,7 +10,6 @@ use anyhow::Context;
 use clap::{Parser, Subcommand};
 use entangle_bin::{config, maintenance::MaintenanceLoop, remote, server, state::DaemonState};
 use entangle_broker::BrokerPolicy;
-use entangle_mesh_iroh::MeshTransport;
 use entangle_mesh_local::{
     Discovery, DiscoveryConfig, DiscoveryEvent, HardwareAdvert, LocalPeer, PeerSeen,
 };
@@ -157,7 +156,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_owned()))
         .unwrap_or_else(|_| "entangled".to_owned());
     let hardware = detect_hardware();
-    let scheduler_mesh = remote::prepare_scheduler(&cfg, &identity, &peer_store, local_peer_id)
+    let mut scheduler_mesh = remote::prepare_scheduler(&cfg, &identity, &peer_store, local_peer_id)
         .await
         .unwrap_or_else(|err| {
             tracing::error!(error = %err, "scheduler endpoint unavailable; serving local requests");
@@ -171,7 +170,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         .with_local_worker(local_worker.clone());
     let mut capability_task = None;
     let mut relay_service = None;
-    if let Some(mesh) = &scheduler_mesh {
+    if let Some(mesh) = &mut scheduler_mesh {
         let client = Arc::new(
             RemoteDispatch::new(mesh.transport.clone(), mesh.addresses.clone())
                 .with_signer(identity.clone()),
@@ -194,15 +193,14 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
                 worker_pool.clone(),
             )));
         }
-        remote::spawn_streaming_task_server(
-            mesh.transport.clone(),
+        mesh.serve(remote::streaming_task_server(
             kernel.clone(),
             peer_store.clone(),
             local_worker,
             identity.clone(),
             cfg.runtime.inference.as_ref(),
             bridge_handler,
-        );
+        ))?;
     }
     anyhow::ensure!(
         relay_service.is_some() || !(cfg.mesh.bridge.enabled || cfg.mesh.bridge.receive),
@@ -318,8 +316,8 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         task.abort();
         let _ = task.await;
     }
-    if let Some(mesh) = &scheduler_mesh {
-        mesh.transport.shutdown().await;
+    if let Some(mesh) = &mut scheduler_mesh {
+        mesh.shutdown().await;
     }
 
     // Unregister from mDNS (sends a goodbye) and stop the browse task so
