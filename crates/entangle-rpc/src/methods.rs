@@ -97,6 +97,10 @@ pub struct MeshPeersResult {
 /// Result of the `mesh/status` RPC method.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MeshStatusResult {
+    /// Version of structured remote error reporting for pinned distributed libtest dispatches.
+    /// Zero identifies older daemons or the offline status fallback.
+    #[serde(default)]
+    pub libtest_remote_codes: u8,
     /// This node's own peer id in hex.
     pub local_peer_id: String,
     /// This node's display name.

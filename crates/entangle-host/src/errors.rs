@@ -6,7 +6,7 @@
 /// its APIs. We store that directly so callers can inspect the root cause via
 /// standard `anyhow` chaining.
 ///
-/// The stable code block `ENTANGLE-E0500`–`ENTANGLE-E0509` is reserved for this
+/// The stable code block `ENTANGLE-E0500`–`ENTANGLE-E0510` is reserved for this
 /// enum; see the range table in `entangle-types::errors` for the workspace map.
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
@@ -59,6 +59,10 @@ pub enum HostError {
         /// Actual chunk length.
         actual: u64,
     },
+
+    /// The selected loaded libtest package differs from the submitter's pinned identity.
+    #[error("ENTANGLE-E0510: libtest suite identity mismatch")]
+    LibtestIdentityMismatch,
 
     /// ENTANGLE-E0507: the artifact format is incompatible with the declared runtime.
     #[error("ENTANGLE-E0507: declared runtime {declared} but artifact uses {observed} format")]

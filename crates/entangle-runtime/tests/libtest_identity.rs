@@ -94,10 +94,7 @@ async fn signed_suite_pins_follow_the_loaded_object_across_reloads() {
                 .invoke(&id, &serde_json::to_vec(&operation).unwrap(), 2000)
                 .await
                 .unwrap_err();
-            assert!(
-                err.to_string().contains("libtest suite identity mismatch"),
-                "{err}"
-            );
+            assert!(err.is_libtest_identity_mismatch(), "{err}");
         }
         let request = json!({"operation":"test","name":"sample","expected_suite_identity":next});
         let result = kernel
@@ -120,9 +117,7 @@ async fn signed_suite_pins_follow_the_loaded_object_across_reloads() {
         .invoke(&id, &serde_json::to_vec(&request).unwrap(), 2000)
         .await
         .unwrap_err();
-    assert!(mismatch
-        .to_string()
-        .contains("libtest suite identity mismatch"));
+    assert!(mismatch.is_libtest_identity_mismatch());
     let unpinned = kernel
         .invoke(&id, br#"{"operation":"test","name":"sample"}"#, 2000)
         .await

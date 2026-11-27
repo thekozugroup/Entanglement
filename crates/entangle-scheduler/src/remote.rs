@@ -833,6 +833,9 @@ impl RemoteTaskServer {
                 }
                 RemoteTaskResponse::ok(output)
             }
+            Err(e) if e.is_libtest_identity_mismatch() => {
+                RemoteTaskResponse::err(RemoteErrorCode::SuiteIdentityMismatch, e.to_string())
+            }
             Err(RuntimeError::NotLoaded(id)) => RemoteTaskResponse::err(
                 RemoteErrorCode::PluginNotLoaded,
                 format!("plugin {id} is not loaded on this node"),

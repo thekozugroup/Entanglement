@@ -23,6 +23,7 @@ use entangle_rpc::methods::{
     PluginsInvokeParams, PluginsInvokeResult, PluginsListResult, PluginsLoadParams,
     PluginsLoadResult, PluginsUnloadParams,
 };
+use entangle_scheduler::DispatchError;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use std::sync::Arc;
@@ -58,18 +59,45 @@ struct Resp<T: Serialize> {
 struct RpcError {
     code: i32,
     message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<RemoteErrorData>,
+}
+
+#[derive(Serialize)]
+struct RemoteErrorData {
+    remote_code: &'static str,
 }
 
 // ── error helpers ────────────────────────────────────────────────────────────
 
 fn error_resp(id: serde_json::Value, code: i32, message: impl Into<String>) -> String {
+    error_with_data(id, code, message.into(), None)
+}
+
+fn dispatch_error_resp(id: serde_json::Value, error: DispatchError) -> String {
+    let data = match &error {
+        DispatchError::RemoteRejected { code, .. } => Some(RemoteErrorData {
+            remote_code: code.as_str(),
+        }),
+        _ => None,
+    };
+    error_with_data(id, -32000, format!("dispatch error: {error}"), data)
+}
+
+fn error_with_data(
+    id: serde_json::Value,
+    code: i32,
+    message: String,
+    data: Option<RemoteErrorData>,
+) -> String {
     let resp: Resp<serde_json::Value> = Resp {
         jsonrpc: "2.0",
         id,
         result: None,
         error: Some(RpcError {
             code,
-            message: message.into(),
+            message,
+            data,
         }),
     };
     serde_json::to_string(&resp).unwrap_or_else(|_| r#"{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"internal serialization error"}}"#.to_owned())
@@ -400,7 +428,7 @@ async fn handle_compute_dispatch(
             };
             ok_resp(id, out)
         }
-        Err(e) => error_resp(id, -32000, format!("dispatch error: {e}")),
+        Err(e) => dispatch_error_resp(id, e),
     }
 }
 
@@ -571,6 +599,7 @@ async fn handle_mesh_status(id: serde_json::Value, state: &Arc<DaemonState>) -> 
     ok_resp(
         id,
         MeshStatusResult {
+            libtest_remote_codes: 1,
             local_peer_id: state.local_peer_id.to_hex(),
             local_display_name: state.local_display_name.clone(),
             transports_active,
@@ -587,4 +616,36 @@ async fn current_peers(state: &DaemonState) -> Result<Vec<entangle_peers::Truste
         .await
         .map_err(|e| format!("peer store read task failed: {e}"))?
         .map_err(|e| format!("cannot read peer store: {e}"))
+}
+
+#[cfg(test)]
+mod dispatch_errors {
+    use super::*;
+    use entangle_scheduler::RemoteErrorCode;
+    use entangle_types::peer_id::PeerId;
+    use serde_json::{json, Value};
+
+    #[test]
+    fn rpc_remote_code_is_derived_from_the_envelope() {
+        for code in [
+            RemoteErrorCode::Execution,
+            RemoteErrorCode::SuiteIdentityMismatch,
+            RemoteErrorCode::NotAuthorized,
+            RemoteErrorCode::PluginNotLoaded,
+        ] {
+            let error = DispatchError::RemoteRejected {
+                peer: PeerId::from_public_key_bytes(&[7; 32]),
+                code,
+                message: "libtest suite identity mismatch (not-authorized)".to_owned(),
+            };
+            let reply: Value =
+                serde_json::from_str(&dispatch_error_resp(json!(12), error)).unwrap();
+            assert_eq!(reply["error"]["code"], -32000);
+            assert_eq!(reply["error"]["data"], json!({"remote_code":code.as_str()}));
+        }
+        let local_error = DispatchError::Integrity("suite-identity-mismatch".into());
+        let reply: Value =
+            serde_json::from_str(&dispatch_error_resp(json!(12), local_error)).unwrap();
+        assert!(reply["error"].get("data").is_none());
+    }
 }

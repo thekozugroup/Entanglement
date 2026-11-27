@@ -94,3 +94,13 @@ pub enum RuntimeError {
     #[error("integrity: {0}")]
     Integrity(#[from] crate::integrity::IntegrityError),
 }
+
+impl RuntimeError {
+    /// Whether the trusted libtest adapter refused a pin before instantiating the guest.
+    pub fn is_libtest_identity_mismatch(&self) -> bool {
+        matches!(
+            self,
+            Self::Host(entangle_host::HostError::LibtestIdentityMismatch)
+        )
+    }
+}

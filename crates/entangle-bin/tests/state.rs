@@ -187,6 +187,7 @@ async fn mesh_status_trusted_peer_count() {
     let count = v["result"]["trusted_peer_count"]
         .as_u64()
         .expect("trusted_peer_count");
+    assert_eq!(v["result"]["libtest_remote_codes"], 1);
     assert_eq!(count, 2);
 
     // With no discovery transport running, seen_peer_count must NOT be

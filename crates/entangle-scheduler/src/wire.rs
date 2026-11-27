@@ -163,6 +163,8 @@ pub enum RemoteErrorCode {
     Internal,
     /// Signed work-unit policy changed during execution.
     PolicyMutation,
+    /// The verified libtest package differed from the requested pin before instantiation.
+    SuiteIdentityMismatch,
 }
 
 impl RemoteErrorCode {
@@ -178,6 +180,7 @@ impl RemoteErrorCode {
             Self::Execution => "execution",
             Self::Internal => "internal",
             Self::PolicyMutation => "policy-mutation",
+            Self::SuiteIdentityMismatch => "suite-identity-mismatch",
         }
     }
 }
@@ -335,6 +338,31 @@ mod tests {
 
     fn sample_task() -> OneShotTask {
         OneShotTask::with_defaults(plugin_id(), b"world".to_vec())
+    }
+
+    #[test]
+    fn remote_error_discriminants_are_append_only() {
+        use RemoteErrorCode::*;
+        let codes = [
+            NotAuthorized,
+            UnsupportedVersion,
+            MalformedRequest,
+            PluginNotLoaded,
+            InputTooLarge,
+            OutputTooLarge,
+            Execution,
+            Internal,
+            PolicyMutation,
+            SuiteIdentityMismatch,
+        ];
+        for (ordinal, code) in codes.iter().enumerate() {
+            let expected = [ordinal as u8];
+            assert_eq!(postcard::to_stdvec(code).unwrap(), expected);
+            assert_eq!(
+                postcard::from_bytes::<RemoteErrorCode>(&expected).unwrap(),
+                *code
+            );
+        }
     }
 
     #[test]

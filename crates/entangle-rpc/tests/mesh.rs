@@ -87,6 +87,7 @@ async fn mesh_status_includes_local_peer_id() {
     assert_eq!(res.transports_active, vec!["mesh.local"]);
     assert_eq!(res.seen_peer_count, 3);
     assert_eq!(res.trusted_peer_count, 1);
+    assert_eq!(res.libtest_remote_codes, 0);
 }
 
 #[tokio::test]

@@ -184,6 +184,7 @@ async fn status(json: bool) -> anyhow::Result<()> {
             if allow_local() {
                 // Stub local status — no daemon means no live mesh state.
                 MeshStatusResult {
+                    libtest_remote_codes: 0,
                     local_peer_id: "(none — daemon not running)".to_owned(),
                     local_display_name: "(none)".to_owned(),
                     transports_active: Vec::new(),

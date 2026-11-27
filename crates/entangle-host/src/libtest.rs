@@ -112,9 +112,7 @@ impl LibtestCapture {
             } => expected_suite_identity.as_ref(),
         };
         if expected.is_some() && expected != identity {
-            return Err(HostError::PluginReturnedError(
-                "libtest suite identity mismatch".into(),
-            ));
+            return Err(HostError::LibtestIdentityMismatch);
         }
         let stdout = MemoryOutputPipe::new(CAPTURE_LIMIT);
         let stderr = MemoryOutputPipe::new(CAPTURE_LIMIT);
