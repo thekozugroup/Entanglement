@@ -1,0 +1,805 @@
+{
+  "base_commit": "2602ce17ee37416770008fb71f1d6048c828f823",
+  "cpu_monitor": [
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.574,
+        "354524:entangled": 1.149
+      },
+      "utc": "02:39:57"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.039,
+        "354524:entangled": 0.28
+      },
+      "utc": "02:39:58"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354713:entangle-rpc-cl": 1.001
+      },
+      "utc": "02:39:59"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354713:entangle-rpc-cl": 0.96
+      },
+      "utc": "02:40:01"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.038,
+        "354524:entangled": 2.653,
+        "354713:entangle-rpc-cl": 0.421
+      },
+      "utc": "02:40:02"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 1.32,
+        "530:codex": 0.03
+      },
+      "utc": "02:40:03"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.039,
+        "354741:entangle-rpc-cl": 1.002
+      },
+      "utc": "02:40:04"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354741:entangle-rpc-cl": 0.975
+      },
+      "utc": "02:40:05"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354524:entangled": 1.955,
+        "354741:entangle-rpc-cl": 0.467
+      },
+      "utc": "02:40:06"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354524:entangled": 2.216
+      },
+      "utc": "02:40:07"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.048,
+        "354762:entangle-rpc-cl": 0.988
+      },
+      "utc": "02:40:08"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354762:entangle-rpc-cl": 0.993
+      },
+      "utc": "02:40:09"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 1.513,
+        "354762:entangle-rpc-cl": 0.547
+      },
+      "utc": "02:40:10"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 2.334
+      },
+      "utc": "02:40:11"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354788:entangle-rpc-cl": 1.0
+      },
+      "utc": "02:40:12"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.048,
+        "354788:entangle-rpc-cl": 1.001
+      },
+      "utc": "02:40:13"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.038,
+        "354524:entangled": 1.106,
+        "354788:entangle-rpc-cl": 0.725
+      },
+      "utc": "02:40:14"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.038,
+        "354524:entangled": 2.759,
+        "354788:entangle-rpc-cl": 0.288
+      },
+      "utc": "02:40:15"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.059,
+        "354524:entangled": 0.769
+      },
+      "utc": "02:40:16"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.039,
+        "354804:entangle-rpc-cl": 1.003
+      },
+      "utc": "02:40:17"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354804:entangle-rpc-cl": 0.978
+      },
+      "utc": "02:40:18"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 0.782,
+        "354804:entangle-rpc-cl": 0.831
+      },
+      "utc": "02:40:19"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.047,
+        "354524:entangled": 2.844,
+        "354804:entangle-rpc-cl": 0.348
+      },
+      "utc": "02:40:20"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.039,
+        "354524:entangled": 0.271
+      },
+      "utc": "02:40:21"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354818:entangle-rpc-cl": 1.007
+      },
+      "utc": "02:40:22"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354524:entangled": 0.058,
+        "354818:entangle-rpc-cl": 0.942
+      },
+      "utc": "02:40:23"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.038,
+        "354524:entangled": 3.213,
+        "354818:entangle-rpc-cl": 0.133
+      },
+      "utc": "02:40:24"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 1.263
+      },
+      "utc": "02:40:25"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354819:entangle-rpc-cl": 0.999
+      },
+      "utc": "02:40:26"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354819:entangle-rpc-cl": 0.988
+      },
+      "utc": "02:40:27"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 2.79,
+        "354819:entangle-rpc-cl": 0.254
+      },
+      "utc": "02:40:28"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 1.981
+      },
+      "utc": "02:40:29"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354820:entangle-rpc-cl": 0.982
+      },
+      "utc": "02:40:30"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354820:entangle-rpc-cl": 1.006
+      },
+      "utc": "02:40:31"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 1.699,
+        "354820:entangle-rpc-cl": 0.547
+      },
+      "utc": "02:40:32"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 2.486
+      },
+      "utc": "02:40:34"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 0.522
+      },
+      "utc": "02:40:35"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354825:entangle-rpc-cl": 1.005
+      },
+      "utc": "02:40:36"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354825:entangle-rpc-cl": 1.001
+      },
+      "utc": "02:40:37"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 1.752,
+        "354825:entangle-rpc-cl": 0.597
+      },
+      "utc": "02:40:38"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 1.968
+      },
+      "utc": "02:40:39"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354826:entangle-rpc-cl": 1.005
+      },
+      "utc": "02:40:40"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.039,
+        "354826:entangle-rpc-cl": 1.002
+      },
+      "utc": "02:40:41"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 2.078,
+        "354826:entangle-rpc-cl": 0.425
+      },
+      "utc": "02:40:42"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "222:containerd": 0.039,
+        "354524:entangled": 1.889
+      },
+      "utc": "02:40:43"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354827:entangle-rpc-cl": 0.995
+      },
+      "utc": "02:40:44"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354827:entangle-rpc-cl": 0.997
+      },
+      "utc": "02:40:45"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.132,
+        "354524:entangled": 2.233,
+        "354827:entangle-rpc-cl": 0.422
+      },
+      "utc": "02:40:46"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 1.991
+      },
+      "utc": "02:40:47"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354850:entangle-rpc-cl": 0.986
+      },
+      "utc": "02:40:48"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354850:entangle-rpc-cl": 0.984
+      },
+      "utc": "02:40:49"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354506:python": 0.029,
+        "354524:entangled": 0.584,
+        "354850:entangle-rpc-cl": 0.766
+      },
+      "utc": "02:40:50"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "354524:entangled": 3.122,
+        "354850:entangle-rpc-cl": 0.289
+      },
+      "utc": "02:40:51"
+    }
+  ],
+  "daemon_sha256": "ee90123fee6074b3e8358a2bad7ac913d36300953675a7613ee9f75e85c46905",
+  "design": "6 AB/BA paired blocks of 1024 sequential greeting jobs and 48 local image jobs (two rotations of 24 distinct JPEGs, four concurrent calls). Both clients make actual entangle_rpc::Client::compute_dispatch calls, assert exact worker ID and expected output bytes for every call. One signed, already-warmed stock daemon serves all calls. Each fresh driver reads identical request/golden files before the timed interval, original pixels compared independently to Pillow via Python; wall includes verification, latency ends at typed response. Client process CPU from procfs enclosing timed section, excluding input/golden setup. Throughput, p95 and per-image client CPU criteria frozen before timing. No source or daemon change in frozen checkout.",
+  "driver_rs": "use entangle_rpc::{Client,ComputeDispatchParams};\nuse std::{path::PathBuf, sync::Arc, time::Instant};\nuse tokio::task::JoinSet;\nfn ticks()->u64 {\n let s=std::fs::read_to_string(\"/proc/self/stat\").unwrap();let fields:Vec<_>=s.rsplit_once(')').unwrap().1.split_whitespace().collect();\n fields[11].parse::<u64>().unwrap()+fields[12].parse::<u64>().unwrap()\n}\n#[tokio::main(flavor=\"current_thread\")]\nasync fn main(){\n let args:Vec<_>=std::env::args().collect();let socket=PathBuf::from(&args[1]);\n let requests:Arc<Vec<ComputeDispatchParams>>=Arc::new(serde_json::from_reader(std::fs::File::open(&args[2]).unwrap()).unwrap());\n let repeats=args[3].parse::<usize>().unwrap();\n let concurrency=args[4].parse::<usize>().unwrap();\n let expected_peer=Arc::new(args[5].clone());let out=PathBuf::from(&args[6]);\n let expected=Arc::new((0..requests.len()).map(|i|std::fs::read(out.join(format!(\"{i}.bin\"))).unwrap()).collect::<Vec<_>>());\n let mut pending=JoinSet::new(); let initial_cpu=ticks();let start=Instant::now();\n for worker in 0..concurrency{\n  let requests=requests.clone();let cli=Client::new(&socket);let peer=expected_peer.clone();let expected=expected.clone();\n  pending.spawn(async move {\n   let mut data=Vec::new();\n   for idx in (worker..repeats).step_by(concurrency){\n    let i=idx%requests.len();let start=Instant::now();let res=cli.compute_dispatch(&requests[i]).await.unwrap();let elapsed=start.elapsed().as_nanos() as u64;\n    assert_eq!(res.chosen_peer,*peer);assert_eq!(res.output,expected[i]);data.push(elapsed);\n   }\n   data\n  });\n }\n let mut samples=Vec::new();while let Some(t)=pending.join_next().await{samples.extend(t.unwrap());}let wall=start.elapsed().as_secs_f64();samples.sort();\n println!(\"{}\",serde_json::json!({\"count\":samples.len(),\"p50_ms\":samples[(samples.len()/2)-1] as f64/1e6,\"p95_ms\":samples[(samples.len()*95).div_ceil(100)-1] as f64/1e6,\"rate\":samples.len()as f64/wall,\"wall_s\":wall,\"cpu_ticks\":ticks()-initial_cpu}));\n}\n",
+  "limits": {
+    "hello_p95": true,
+    "hello_throughput": true,
+    "image_client_cpu": true,
+    "image_p95": true,
+    "image_throughput": true
+  },
+  "orchestrator_py": "import sys,time,tempfile,tomllib,subprocess,os,threading,json\nfrom contextlib import ExitStack\nfrom pathlib import Path\nroot=Path('/workspace/Entanglement');sys.path.insert(0,str(root/'scripts'))\nimport benchmark_image_batch as b\nbase=Path('/tmp/entangle-final-frozen/candidate');out=Path(sys.argv[1]);rows=[]\nscope={};exec(Path('/tmp/entangle-capacity-window.py').read_text().split('t=Thread(target=monitor)')[0],scope)\ncases=b.corpus(Path('/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg'))\nwith tempfile.TemporaryDirectory(prefix='entangle-client-') as temp,ExitStack() as stack:\n d=Path(temp);node=b.Node(d/'worker',base/'entangle');trusted=b.Node(d/'trusted',base/'entangle');node.trust(trusted)\n node.start(stack,base/'entangled',0,[])\n for label,name,catalog,wasm in [('hello','hello-world',root/'examples',root/'crates/entangle-host/tests/fixtures/hello-pong.wasm'),('image','image-resize',root/'plugins',root/'target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm')]:\n  node.command('plugins','install',name,'--catalog',catalog,'--wasm',wasm,'--no-load');pkg=node.home/'.entangle/plugins'/name;plug=tomllib.loads((pkg/'entangle.toml').read_text())['plugin']['id'];node.command('plugins','load',pkg)\n  xs=[b'job00000000'] if label=='hello' else [x for x,_ in cases]\n  dest=d/label;dest.mkdir();params=[]\n  for j,x in enumerate(xs):\n   msg=b.dispatch_frame(plug,x,[node.peer]);params.append(json.loads(msg)['params']);reply=b.decoded(b.exchange(node.sock,msg)[1]);assert reply['chosen_peer']==node.peer;output=bytes(reply['output'])\n   if label=='image':b.verify_png(output,cases[j][1])\n   else:assert output==b'Hello, job00000000!'\n   (dest/f'{j}.bin').write_bytes(output)\n  (dest/'params.json').write_text(json.dumps(params,separators=(',',':')))\n def run(build,route,n):\n  dest=d/route;bin='/tmp/entangle-rpc-client-'+build;c=1 if route=='hello' else 4\n  p=subprocess.check_output([bin,node.sock,dest/'params.json',str(n),str(c),node.peer,dest]);v=json.loads(p)\n  v['cpu_ms_per_job']=1000*v['cpu_ticks']/os.sysconf('SC_CLK_TCK')/n\n  return v\n for build in ['stock','patched']:\n  for route in ['hello','image']:run(build,route,24)\n t=threading.Thread(target=scope['monitor']);t.start()\n try:\n  for r in range(6):\n   for route in (('hello','image') if r%2==0 else ('image','hello')):\n    for build in (('stock','patched') if r%2==0 else ('patched','stock')):\n     res=run(build,route,1024 if route=='hello' else 48); row=dict(pair=r,route=route,build=build,utc=time.strftime('%H:%M:%S',time.gmtime()),**res)\n     rows.append(row);out.write_text(json.dumps(rows,indent=2)+'\\n');print(row,flush=True)\n finally:\n  scope['stopped'].set();t.join();Path(str(out)+'.cpu').write_text(json.dumps(scope['rows'],indent=2))\n",
+  "patch": "--- a/crates/entangle-rpc/src/client.rs\n+++ b/crates/entangle-rpc/src/client.rs\n@@ -6,6 +6,14 @@\n use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};\n use tokio::net::UnixStream;\n \n+#[derive(Serialize)]\n+struct Request<'a, P> {\n+    id: u64,\n+    jsonrpc: &'static str,\n+    method: &'a str,\n+    params: P,\n+}\n+\n /// Default connect timeout: 2 seconds. Short enough to fail fast in the CLI;\n /// long enough to tolerate a daemon that's just started up.\n pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(2);\n@@ -62,12 +70,12 @@\n         }\n \n         let id = self.next_id.fetch_add(1, Ordering::Relaxed);\n-        let req = serde_json::json!({\n-            \"jsonrpc\": \"2.0\",\n-            \"id\": id,\n-            \"method\": method,\n-            \"params\": params,\n-        });\n+        let req = Request {\n+            id,\n+            jsonrpc: \"2.0\",\n+            method,\n+            params,\n+        };\n         let line = serde_json::to_string(&req)?;\n \n         let stream =\n@@ -89,7 +97,7 @@\n             .await?\n             .ok_or_else(|| RpcError::Malformed(\"empty response\".into()))?;\n \n-        let resp: serde_json::Value = serde_json::from_str(&resp_line)?;\n+        let mut resp: serde_json::Value = serde_json::from_str(&resp_line)?;\n \n         if resp[\"jsonrpc\"] != \"2.0\" || resp[\"id\"].as_u64() != Some(id) {\n             return Err(RpcError::Malformed(\n@@ -112,9 +120,9 @@\n         }\n \n         let result = resp\n-            .get(\"result\")\n-            .ok_or_else(|| RpcError::Malformed(\"missing result\".into()))?\n-            .clone();\n+            .as_object_mut()\n+            .and_then(|object| object.remove(\"result\"))\n+            .ok_or_else(|| RpcError::Malformed(\"missing result\".into()))?;\n \n         let typed: R = serde_json::from_value(result)?;\n         Ok(typed)\n",
+  "patched_client_driver_sha256": "4bb318daa7551531ac7fa5314ac33225349c3782e4e870fc68917e8d2fc8933f",
+  "raw": [
+    {
+      "build": "stock",
+      "count": 1024,
+      "cpu_ms_per_job": 0.0390625,
+      "cpu_ticks": 4,
+      "p50_ms": 0.168297,
+      "p95_ms": 0.312815,
+      "pair": 0,
+      "rate": 5165.568788245135,
+      "route": "hello",
+      "utc": "02:39:58",
+      "wall_s": 0.198235672
+    },
+    {
+      "build": "patched",
+      "count": 1024,
+      "cpu_ms_per_job": 0.029296875,
+      "cpu_ticks": 3,
+      "p50_ms": 0.163167,
+      "p95_ms": 0.30716,
+      "pair": 0,
+      "rate": 5090.998389479563,
+      "route": "hello",
+      "utc": "02:39:58",
+      "wall_s": 0.201139329
+    },
+    {
+      "build": "stock",
+      "count": 48,
+      "cpu_ms_per_job": 11.666666666666666,
+      "cpu_ticks": 56,
+      "p50_ms": 93.916899,
+      "p95_ms": 267.201557,
+      "pair": 0,
+      "rate": 31.610682289010057,
+      "route": "image",
+      "utc": "02:40:02",
+      "wall_s": 1.518474026
+    },
+    {
+      "build": "patched",
+      "count": 48,
+      "cpu_ms_per_job": 4.166666666666667,
+      "cpu_ticks": 20,
+      "p50_ms": 107.880421,
+      "p95_ms": 175.966031,
+      "pair": 0,
+      "rate": 32.65245921976206,
+      "route": "image",
+      "utc": "02:40:06",
+      "wall_s": 1.470027102
+    },
+    {
+      "build": "patched",
+      "count": 48,
+      "cpu_ms_per_job": 4.583333333333333,
+      "cpu_ticks": 22,
+      "p50_ms": 90.630225,
+      "p95_ms": 168.35819,
+      "pair": 1,
+      "rate": 36.02638940228996,
+      "route": "image",
+      "utc": "02:40:11",
+      "wall_s": 1.332356664
+    },
+    {
+      "build": "stock",
+      "count": 48,
+      "cpu_ms_per_job": 10.833333333333334,
+      "cpu_ticks": 52,
+      "p50_ms": 101.615851,
+      "p95_ms": 248.571124,
+      "pair": 1,
+      "rate": 30.046310810768357,
+      "route": "image",
+      "utc": "02:40:15",
+      "wall_s": 1.597533897
+    },
+    {
+      "build": "patched",
+      "count": 1024,
+      "cpu_ms_per_job": 0.0390625,
+      "cpu_ticks": 4,
+      "p50_ms": 0.161877,
+      "p95_ms": 0.327409,
+      "pair": 1,
+      "rate": 4195.361189133176,
+      "route": "hello",
+      "utc": "02:40:15",
+      "wall_s": 0.244079104
+    },
+    {
+      "build": "stock",
+      "count": 1024,
+      "cpu_ms_per_job": 0.0390625,
+      "cpu_ticks": 4,
+      "p50_ms": 0.173989,
+      "p95_ms": 0.295433,
+      "pair": 1,
+      "rate": 5095.1677066240645,
+      "route": "hello",
+      "utc": "02:40:16",
+      "wall_s": 0.200974739
+    },
+    {
+      "build": "stock",
+      "count": 1024,
+      "cpu_ms_per_job": 0.0390625,
+      "cpu_ticks": 4,
+      "p50_ms": 0.184403,
+      "p95_ms": 0.323207,
+      "pair": 2,
+      "rate": 4863.674689470639,
+      "route": "hello",
+      "utc": "02:40:16",
+      "wall_s": 0.210540397
+    },
+    {
+      "build": "patched",
+      "count": 1024,
+      "cpu_ms_per_job": 0.0390625,
+      "cpu_ticks": 4,
+      "p50_ms": 0.174183,
+      "p95_ms": 0.283374,
+      "pair": 2,
+      "rate": 5229.839895448555,
+      "route": "hello",
+      "utc": "02:40:16",
+      "wall_s": 0.195799493
+    },
+    {
+      "build": "stock",
+      "count": 48,
+      "cpu_ms_per_job": 12.5,
+      "cpu_ticks": 60,
+      "p50_ms": 110.109984,
+      "p95_ms": 217.108791,
+      "pair": 2,
+      "rate": 29.164425927367134,
+      "route": "image",
+      "utc": "02:40:20",
+      "wall_s": 1.645840728
+    },
+    {
+      "build": "patched",
+      "count": 48,
+      "cpu_ms_per_job": 4.583333333333333,
+      "cpu_ticks": 22,
+      "p50_ms": 114.099064,
+      "p95_ms": 192.519752,
+      "pair": 2,
+      "rate": 31.522465932424943,
+      "route": "image",
+      "utc": "02:40:25",
+      "wall_s": 1.5227235110000001
+    },
+    {
+      "build": "patched",
+      "count": 48,
+      "cpu_ms_per_job": 4.375,
+      "cpu_ticks": 21,
+      "p50_ms": 115.742713,
+      "p95_ms": 208.342836,
+      "pair": 3,
+      "rate": 31.69872883573696,
+      "route": "image",
+      "utc": "02:40:29",
+      "wall_s": 1.514256305
+    },
+    {
+      "build": "stock",
+      "count": 48,
+      "cpu_ms_per_job": 10.416666666666666,
+      "cpu_ticks": 50,
+      "p50_ms": 115.013396,
+      "p95_ms": 230.420095,
+      "pair": 3,
+      "rate": 31.175282832882363,
+      "route": "image",
+      "utc": "02:40:33",
+      "wall_s": 1.5396813
+    },
+    {
+      "build": "patched",
+      "count": 1024,
+      "cpu_ms_per_job": 0.029296875,
+      "cpu_ticks": 3,
+      "p50_ms": 0.176491,
+      "p95_ms": 0.329409,
+      "pair": 3,
+      "rate": 4950.646885170944,
+      "route": "hello",
+      "utc": "02:40:34",
+      "wall_s": 0.206841656
+    },
+    {
+      "build": "stock",
+      "count": 1024,
+      "cpu_ms_per_job": 0.029296875,
+      "cpu_ticks": 3,
+      "p50_ms": 0.160557,
+      "p95_ms": 0.271699,
+      "pair": 3,
+      "rate": 5580.754971399476,
+      "route": "hello",
+      "utc": "02:40:34",
+      "wall_s": 0.183487719
+    },
+    {
+      "build": "stock",
+      "count": 1024,
+      "cpu_ms_per_job": 0.01953125,
+      "cpu_ticks": 2,
+      "p50_ms": 0.159497,
+      "p95_ms": 0.2713,
+      "pair": 4,
+      "rate": 5415.045094660567,
+      "route": "hello",
+      "utc": "02:40:34",
+      "wall_s": 0.189102765
+    },
+    {
+      "build": "patched",
+      "count": 1024,
+      "cpu_ms_per_job": 0.01953125,
+      "cpu_ticks": 2,
+      "p50_ms": 0.158069,
+      "p95_ms": 0.263036,
+      "pair": 4,
+      "rate": 5699.249110572067,
+      "route": "hello",
+      "utc": "02:40:34",
+      "wall_s": 0.179672792
+    },
+    {
+      "build": "stock",
+      "count": 48,
+      "cpu_ms_per_job": 11.041666666666666,
+      "cpu_ticks": 53,
+      "p50_ms": 99.976341,
+      "p95_ms": 193.467032,
+      "pair": 4,
+      "rate": 34.96804076972828,
+      "route": "image",
+      "utc": "02:40:38",
+      "wall_s": 1.372681996
+    },
+    {
+      "build": "patched",
+      "count": 48,
+      "cpu_ms_per_job": 5.208333333333333,
+      "cpu_ticks": 25,
+      "p50_ms": 105.642681,
+      "p95_ms": 193.091152,
+      "pair": 4,
+      "rate": 33.808925650473235,
+      "route": "image",
+      "utc": "02:40:42",
+      "wall_s": 1.4197434279999999
+    },
+    {
+      "build": "patched",
+      "count": 48,
+      "cpu_ms_per_job": 5.208333333333333,
+      "cpu_ticks": 25,
+      "p50_ms": 108.89815,
+      "p95_ms": 451.540711,
+      "pair": 5,
+      "rate": 28.241768559702177,
+      "route": "image",
+      "utc": "02:40:47",
+      "wall_s": 1.6996102739999999
+    },
+    {
+      "build": "stock",
+      "count": 48,
+      "cpu_ms_per_job": 10.208333333333334,
+      "cpu_ticks": 49,
+      "p50_ms": 114.093792,
+      "p95_ms": 219.166707,
+      "pair": 5,
+      "rate": 30.10367970698282,
+      "route": "image",
+      "utc": "02:40:51",
+      "wall_s": 1.5944894600000001
+    },
+    {
+      "build": "patched",
+      "count": 1024,
+      "cpu_ms_per_job": 0.029296875,
+      "cpu_ticks": 3,
+      "p50_ms": 0.151471,
+      "p95_ms": 0.274585,
+      "pair": 5,
+      "rate": 5844.852344360573,
+      "route": "hello",
+      "utc": "02:40:51",
+      "wall_s": 0.175196898
+    },
+    {
+      "build": "stock",
+      "count": 1024,
+      "cpu_ms_per_job": 0.01953125,
+      "cpu_ticks": 2,
+      "p50_ms": 0.13014,
+      "p95_ms": 0.23421,
+      "pair": 5,
+      "rate": 6821.942925986616,
+      "route": "hello",
+      "utc": "02:40:52",
+      "wall_s": 0.150103865
+    }
+  ],
+  "rustc": "1.91.1; release opt-level 3, thin LTO, one codegen unit; original pinned workspace dependency versions",
+  "stock_client_driver_sha256": "fa026dbf36d73e4df936e46f57d79eb87799748660574f7ab75d4762ccb71c17",
+  "summary": {
+    "hello": {
+      "cpu_ms_per_job": {
+        "improved_pairs": 1,
+        "patched": 0.029296875,
+        "ratio": 0.8571428571428571,
+        "stock": 0.0341796875
+      },
+      "p50_ms": {
+        "improved_pairs": 4,
+        "patched": 0.162522,
+        "ratio": 0.9884143115181814,
+        "stock": 0.164427
+      },
+      "p95_ms": {
+        "improved_pairs": 3,
+        "patched": 0.295267,
+        "ratio": 1.041263762228194,
+        "stock": 0.283566
+      },
+      "rate": {
+        "improved_pairs": 2,
+        "patched": 5160.419142464059,
+        "ratio": 0.9754479654155717,
+        "stock": 5290.306941452851
+      }
+    },
+    "image": {
+      "cpu_ms_per_job": {
+        "improved_pairs": 6,
+        "patched": 4.583333333333333,
+        "ratio": 0.419047619047619,
+        "stock": 10.9375
+      },
+      "p50_ms": {
+        "improved_pairs": 2,
+        "patched": 108.3892855,
+        "ratio": 1.0238645227210934,
+        "stock": 105.86291750000001
+      },
+      "p95_ms": {
+        "improved_pairs": 5,
+        "patched": 192.805452,
+        "ratio": 0.8577006760087231,
+        "stock": 224.79340100000002
+      },
+      "rate": {
+        "improved_pairs": 4,
+        "patched": 32.17559402774951,
+        "ratio": 1.0501350771667388,
+        "stock": 30.639481269932592
+      }
+    }
+  },
+  "tests": 20
+}

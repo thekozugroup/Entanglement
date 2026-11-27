@@ -6,6 +6,14 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
+#[derive(Serialize)]
+struct Request<'a, P> {
+    id: u64,
+    jsonrpc: &'static str,
+    method: &'a str,
+    params: P,
+}
+
 /// Default connect timeout: 2 seconds. Short enough to fail fast in the CLI;
 /// long enough to tolerate a daemon that's just started up.
 pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
@@ -62,12 +70,12 @@ impl Client {
         }
 
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        let req = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "method": method,
-            "params": params,
-        });
+        let req = Request {
+            id,
+            jsonrpc: "2.0",
+            method,
+            params,
+        };
         let line = serde_json::to_string(&req)?;
 
         let stream =
@@ -89,7 +97,7 @@ impl Client {
             .await?
             .ok_or_else(|| RpcError::Malformed("empty response".into()))?;
 
-        let resp: serde_json::Value = serde_json::from_str(&resp_line)?;
+        let mut resp: serde_json::Value = serde_json::from_str(&resp_line)?;
 
         if resp["jsonrpc"] != "2.0" || resp["id"].as_u64() != Some(id) {
             return Err(RpcError::Malformed(
@@ -112,9 +120,9 @@ impl Client {
         }
 
         let result = resp
-            .get("result")
-            .ok_or_else(|| RpcError::Malformed("missing result".into()))?
-            .clone();
+            .as_object_mut()
+            .and_then(|object| object.remove("result"))
+            .ok_or_else(|| RpcError::Malformed("missing result".into()))?;
 
         let typed: R = serde_json::from_value(result)?;
         Ok(typed)
