@@ -52,6 +52,14 @@ def validate_inputs(directory, manifest):
             raise ValueError(f"source changed or is a symlink: {name!r}")
 
 
+class BatchVerificationError(ValueError):
+    """Final coverage or digest failure after per-file output validation."""
+
+    def __init__(self, message, observations):
+        super().__init__(message)
+        self.observations = observations
+
+
 def verify_run(ndjson, directory, manifest, peers, tile_edge, reference):
     rows = [json.loads(line) for line in ndjson.splitlines()]
     if not rows:
@@ -94,10 +102,44 @@ def verify_run(ndjson, directory, manifest, peers, tile_edge, reference):
             raise ValueError(f"invalid processing time: {name}")
         photos[name] = {"elapsed_ms": elapsed, "worker_tiles": dict(chosen)}
         outputs[name] = sha256(path)
-    if outputs.keys() != manifest.keys() or distribution.keys() != peers:
-        raise ValueError("batch omitted a source or failed to place work on every specified worker")
-    if reference is not None and outputs != reference:
-        raise ValueError("a rendered PNG differs across routes or trials")
+    missing_sources = sorted(manifest.keys() - outputs.keys())
+    unused_workers = sorted(peers - distribution.keys())
+    digest_mismatches = {}
+    compared = set()
+    missing_from_reference = []
+    missing_from_outputs = []
+    if reference is not None:
+        missing_from_reference = sorted(outputs.keys() - reference.keys())
+        missing_from_outputs = sorted(reference.keys() - outputs.keys())
+        compared = outputs.keys() & reference.keys()
+        digest_mismatches = {
+            name: {"expected": reference[name], "actual": outputs[name]}
+            for name in sorted(compared)
+            if outputs[name] != reference[name]
+        }
+    if missing_sources or unused_workers or digest_mismatches or missing_from_reference or missing_from_outputs:
+        messages = []
+        if missing_sources:
+            messages.append(f"missing RAW sources: {missing_sources!r}")
+        if unused_workers:
+            messages.append(f"no tiles on specified workers: {unused_workers!r}")
+        if digest_mismatches:
+            messages.append(f"rendered PNG digest mismatch: {list(digest_mismatches)!r}")
+        if missing_from_reference:
+            messages.append(f"outputs without reference hashes: {missing_from_reference!r}")
+        if missing_from_outputs and missing_from_outputs != missing_sources:
+            messages.append(f"reference outputs absent: {missing_from_outputs!r}")
+        raise BatchVerificationError(". ".join(messages), {
+            "missing_sources": missing_sources,
+            "unused_workers": unused_workers,
+            "worker_tiles": {peer: distribution[peer] for peer in sorted(peers)},
+            "photos": photos,
+            "output_sha256": outputs,
+            "digest_mismatches": digest_mismatches,
+            "missing_from_reference": missing_from_reference,
+            "missing_from_outputs": missing_from_outputs,
+            "compared_output_hashes_match": not digest_mismatches if compared else None,
+        })
     return outputs, dict(distribution), photos
 
 
@@ -147,8 +189,13 @@ def benchmark(args, report):
                     failed = [row for row in proc.stdout.splitlines() if b'"failed"' in row]
                     raise ValueError(f"batch failed: {proc.stderr[-1500:]!r}, last failure {failed[-2:]!r}")
                 reference = report["verified_output_sha256"] or None
-                outputs, placement, photos = verify_run(proc.stdout, out, manifest, allowed,
-                                                        args.tile_edge, reference)
+                try:
+                    outputs, placement, photos = verify_run(
+                        proc.stdout, out, manifest, allowed, args.tile_edge, reference
+                    )
+                except BatchVerificationError as error:
+                    entry["failed_verification"] = error.observations
+                    raise
                 if reference is None:
                     report["verified_output_sha256"] = outputs
                 ms = sorted(photo["elapsed_ms"] for photo in photos.values())
